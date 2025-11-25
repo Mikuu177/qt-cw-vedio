@@ -35,9 +35,9 @@ An enhanced video editor and player application based on the Tomeo application, 
 - Undo/redo functionality
 
 ## Technology Stack
-- **Framework**: Qt (C++ or PyQt)
-- **Video Processing**: QMediaPlayer, FFmpeg
-- **Data Storage**: SQLite (for user preferences and project history)
+- **Framework**: PyQt5 (Python Qt bindings)
+- **Video Processing**: QMediaPlayer (playback), FFmpeg (editing - Iteration 2+)
+- **Data Storage**: SQLite (for user preferences and project history - Iteration 2+)
 - **UI Design**: Figma/Adobe XD (prototyping)
 
 ## Project Timeline
@@ -86,7 +86,60 @@ An enhanced video editor and player application based on the Tomeo application, 
 - Apply iterative design process
 
 ## How to Run
-*Instructions will be added as development progresses*
+
+### Prerequisites
+- Python 3.8 or higher
+- pip (Python package installer)
+
+### Installation
+
+1. Clone the repository:
+```bash
+git clone https://github.com/Mikuu177/qt-cw-vedio.git
+cd qt-cw-vedio
+```
+
+2. Install dependencies:
+```bash
+pip install -r requirements.txt
+```
+
+### Running the Application
+
+From the project root directory:
+```bash
+python src/main.py
+```
+
+### Keyboard Shortcuts
+
+- **Space**: Play/Pause
+- **Left/Right Arrow**: Seek backward/forward 5 seconds
+- **Up/Down Arrow**: Increase/decrease volume
+- **Ctrl+O**: Open video file
+- **Ctrl+Q**: Quit application
+
+## Current Status
+
+### Iteration 1 - Completed ✅
+- [x] Basic video playback (play, pause, stop)
+- [x] Timeline scrubbing with time display
+- [x] Volume control
+- [x] Keyboard shortcuts for accessibility
+- [x] File menu (open video)
+- [ ] User scenarios documentation (in progress)
+- [ ] Heuristic evaluation (pending)
+- [ ] Iteration video 1 (pending)
+
+### Iteration 2 - Planned
+- Video editing features (trim, cut, multi-clip)
+- Enhanced accessibility (high contrast mode)
+- Cognitive walkthrough evaluation
+
+### Iteration 3 - Planned
+- Internationalization (English/Chinese)
+- Export functionality
+- SUS questionnaire evaluation
 
 ## License
 Academic project for University of Leeds - XJCO2811
