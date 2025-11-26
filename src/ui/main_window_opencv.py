@@ -7,7 +7,7 @@ on Windows compared to QMediaPlayer.
 
 from PyQt5.QtWidgets import (
     QMainWindow, QWidget, QVBoxLayout, QHBoxLayout,
-    QPushButton, QSlider, QLabel, QFileDialog, QStyle, QAction
+    QPushButton, QSlider, QLabel, QFileDialog, QStyle, QAction, QComboBox
 )
 from PyQt5.QtCore import Qt
 import os
@@ -103,6 +103,15 @@ class MainWindow(QMainWindow):
         """Create playback controls."""
         control_layout = QHBoxLayout()
 
+        # Rewind button (seek -10s)
+        self.rewind_button = QPushButton()
+        self.rewind_button.setIcon(self.style().standardIcon(QStyle.SP_MediaSeekBackward))
+        self.rewind_button.setToolTip("Rewind 10s")
+        self.rewind_button.clicked.connect(self.rewind)
+        self.rewind_button.setMinimumSize(40, 40)
+        self.rewind_button.setEnabled(False)
+        control_layout.addWidget(self.rewind_button)
+
         # Play/Pause button
         self.play_button = QPushButton()
         self.play_button.setIcon(self.style().standardIcon(QStyle.SP_MediaPlay))
@@ -121,6 +130,28 @@ class MainWindow(QMainWindow):
         self.stop_button.setEnabled(False)
         control_layout.addWidget(self.stop_button)
 
+        # Fast-forward button (seek +10s)
+        self.forward_button = QPushButton()
+        self.forward_button.setIcon(self.style().standardIcon(QStyle.SP_MediaSeekForward))
+        self.forward_button.setToolTip("Forward 10s")
+        self.forward_button.clicked.connect(self.fast_forward)
+        self.forward_button.setMinimumSize(40, 40)
+        self.forward_button.setEnabled(False)
+        control_layout.addWidget(self.forward_button)
+
+        control_layout.addSpacing(20)
+
+        # Playback speed control
+        speed_label = QLabel("Speed:")
+        control_layout.addWidget(speed_label)
+
+        self.speed_combo = QComboBox()
+        self.speed_combo.addItems(["0.25x", "0.5x", "0.75x", "1x", "1.25x", "1.5x", "2x"])
+        self.speed_combo.setCurrentText("1x")
+        self.speed_combo.currentTextChanged.connect(self.change_speed)
+        self.speed_combo.setToolTip("Playback speed")
+        control_layout.addWidget(self.speed_combo)
+
         control_layout.addSpacing(20)
 
         # Volume control
@@ -130,13 +161,31 @@ class MainWindow(QMainWindow):
         self.volume_slider = QSlider(Qt.Horizontal)
         self.volume_slider.setRange(0, 100)
         self.volume_slider.setValue(70)
-        self.volume_slider.setMaximumWidth(150)
+        self.volume_slider.setMaximumWidth(100)
         self.volume_slider.valueChanged.connect(self.set_volume)
         control_layout.addWidget(self.volume_slider)
 
         self.volume_label = QLabel("70%")
         self.volume_label.setMinimumWidth(40)
         control_layout.addWidget(self.volume_label)
+
+        # Mute button
+        self.mute_button = QPushButton()
+        self.mute_button.setIcon(self.style().standardIcon(QStyle.SP_MediaVolume))
+        self.mute_button.setToolTip("Mute (M)")
+        self.mute_button.clicked.connect(self.toggle_mute)
+        self.mute_button.setMaximumSize(40, 40)
+        control_layout.addWidget(self.mute_button)
+
+        control_layout.addSpacing(20)
+
+        # Fullscreen button
+        self.fullscreen_button = QPushButton()
+        self.fullscreen_button.setIcon(self.style().standardIcon(QStyle.SP_TitleBarMaxButton))
+        self.fullscreen_button.setToolTip("Fullscreen (F)")
+        self.fullscreen_button.clicked.connect(self.toggle_fullscreen)
+        self.fullscreen_button.setMaximumSize(40, 40)
+        control_layout.addWidget(self.fullscreen_button)
 
         control_layout.addStretch()
 
@@ -161,6 +210,8 @@ class MainWindow(QMainWindow):
         if self.video_player.load_video(file_path):
             self.play_button.setEnabled(True)
             self.stop_button.setEnabled(True)
+            self.rewind_button.setEnabled(True)
+            self.forward_button.setEnabled(True)
             self.statusBar().showMessage(f"Loaded: {os.path.basename(file_path)}")
         else:
             self.statusBar().showMessage(f"Failed to load: {os.path.basename(file_path)}")
@@ -231,6 +282,53 @@ class MainWindow(QMainWindow):
         seconds = seconds % 60
         return f"{minutes:02d}:{seconds:02d}"
 
+    def rewind(self):
+        """Rewind 10 seconds."""
+        new_pos = max(0, self.video_player.get_position() - 10000)
+        self.video_player.seek(new_pos)
+
+    def fast_forward(self):
+        """Fast forward 10 seconds."""
+        duration = self.timeline_slider.maximum()
+        new_pos = min(duration, self.video_player.get_position() + 10000)
+        self.video_player.seek(new_pos)
+
+    def change_speed(self, speed_text):
+        """Change playback speed."""
+        # Extract numeric value from text (e.g., "1.5x" -> 1.5)
+        speed = float(speed_text.replace('x', ''))
+        self.video_player.set_playback_speed(speed)
+        self.statusBar().showMessage(f"Playback speed: {speed_text}")
+
+    def toggle_mute(self):
+        """Toggle mute on/off."""
+        current_muted = self.video_player.is_muted
+        self.video_player.set_mute(not current_muted)
+
+        if not current_muted:
+            # Now muted
+            self.mute_button.setIcon(self.style().standardIcon(QStyle.SP_MediaVolumeMuted))
+            self.mute_button.setToolTip("Unmute (M)")
+            self.statusBar().showMessage("Muted")
+        else:
+            # Now unmuted
+            self.mute_button.setIcon(self.style().standardIcon(QStyle.SP_MediaVolume))
+            self.mute_button.setToolTip("Mute (M)")
+            self.statusBar().showMessage("Unmuted")
+
+    def toggle_fullscreen(self):
+        """Toggle fullscreen mode."""
+        if self.isFullScreen():
+            self.showNormal()
+            self.fullscreen_button.setIcon(self.style().standardIcon(QStyle.SP_TitleBarMaxButton))
+            self.fullscreen_button.setToolTip("Fullscreen (F)")
+            self.statusBar().showMessage("Exited fullscreen")
+        else:
+            self.showFullScreen()
+            self.fullscreen_button.setIcon(self.style().standardIcon(QStyle.SP_TitleBarNormalButton))
+            self.fullscreen_button.setToolTip("Exit fullscreen (F)")
+            self.statusBar().showMessage("Fullscreen mode")
+
     def keyPressEvent(self, event):
         """Handle keyboard shortcuts."""
         if event.key() == Qt.Key_Space:
@@ -252,6 +350,15 @@ class MainWindow(QMainWindow):
             # Decrease volume
             new_volume = max(0, self.volume_slider.value() - 5)
             self.volume_slider.setValue(new_volume)
+        elif event.key() == Qt.Key_F:
+            # Toggle fullscreen
+            self.toggle_fullscreen()
+        elif event.key() == Qt.Key_M:
+            # Toggle mute
+            self.toggle_mute()
+        elif event.key() == Qt.Key_Escape and self.isFullScreen():
+            # Exit fullscreen on Escape
+            self.toggle_fullscreen()
         else:
             super().keyPressEvent(event)
 

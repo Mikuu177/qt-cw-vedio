@@ -48,17 +48,31 @@ python main.py
 - **Right Arrow**: Seek forward 5 seconds
 - **Up Arrow**: Increase volume
 - **Down Arrow**: Decrease volume
+- **F**: Toggle fullscreen
+- **M**: Toggle mute
+- **Escape**: Exit fullscreen (when in fullscreen mode)
 - **Ctrl+O**: Open video file
 - **Ctrl+Q**: Quit application
 
 ## Current Features (Iteration 1)
 
+### Playback Controls
 - Basic video playback (play, pause, stop)
-- Timeline scrubbing
-- Volume control
-- Time display (current/total)
-- Keyboard shortcuts for accessibility
-- Standard file menu
+- Fast-forward (+10s) and rewind (-10s) buttons
+- Variable playback speed (0.25x, 0.5x, 0.75x, 1x, 1.25x, 1.5x, 2x)
+- Timeline scrubbing with time display
+- Volume control with mute button
+
+### Display Features
+- Fullscreen mode support
+- Responsive video display
+- Time display (current/total in MM:SS format)
+
+### Accessibility
+- Comprehensive keyboard shortcuts for all functions
+- Clear visual feedback for all controls
+- Tooltip hints on all buttons
+- Auto-load sample video for testing
 
 ## Planned Features
 

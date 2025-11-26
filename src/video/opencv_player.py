@@ -46,12 +46,16 @@ class OpenCVVideoPlayer(QLabel):
         self.fps = 30.0
         self.duration_ms = 0
 
+        # Playback speed (1.0 = normal, 0.5 = half speed, 2.0 = double speed)
+        self.playback_speed = 1.0
+
         # Timer for frame updates
         self.timer = QTimer(self)
         self.timer.timeout.connect(self._update_frame)
 
         # Volume (not applicable for OpenCV, but kept for API compatibility)
         self.volume = 70
+        self.is_muted = False
 
         # Widget setup
         self.setMinimumSize(640, 480)
@@ -114,12 +118,12 @@ class OpenCVVideoPlayer(QLabel):
             print("[DEBUG] Cannot play: No video loaded")
             return
 
-        print("[DEBUG] Starting playback")
+        print(f"[DEBUG] Starting playback at {self.playback_speed}x speed")
         self.state = self.STATE_PLAYING
         self.stateChanged.emit(self.state)
 
-        # Calculate timer interval based on FPS
-        interval = int(1000 / self.fps)
+        # Calculate timer interval based on FPS and playback speed
+        interval = int((1000 / self.fps) / self.playback_speed)
         self.timer.start(interval)
 
     def pause(self):
@@ -174,6 +178,35 @@ class OpenCVVideoPlayer(QLabel):
             volume (int): Volume level 0-100
         """
         self.volume = volume
+
+    def set_mute(self, muted):
+        """
+        Set mute state (not applicable for OpenCV, kept for API compatibility).
+
+        Args:
+            muted (bool): True to mute, False to unmute
+        """
+        self.is_muted = muted
+        print(f"[DEBUG] Mute: {muted}")
+
+    def set_playback_speed(self, speed):
+        """
+        Set playback speed.
+
+        Args:
+            speed (float): Playback speed (0.25, 0.5, 1.0, 1.5, 2.0, etc.)
+        """
+        self.playback_speed = speed
+        print(f"[DEBUG] Playback speed set to {speed}x")
+
+        # If currently playing, restart timer with new interval
+        if self.state == self.STATE_PLAYING:
+            interval = int((1000 / self.fps) / self.playback_speed)
+            self.timer.setInterval(interval)
+
+    def get_playback_speed(self):
+        """Get current playback speed."""
+        return self.playback_speed
 
     def get_state(self):
         """Get current playback state."""

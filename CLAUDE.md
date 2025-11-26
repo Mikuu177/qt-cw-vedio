@@ -210,18 +210,90 @@ Must have in `/docs/ethics/`:
 - Over-recruit evaluation participants (backup if some cancel)
 - Practice video creation early (quality matters)
 
-## Current Project Status
+## Current Project Status (Updated: 2025-11-26)
 
-- ✅ Repository created and structure initialized
-- ✅ Project plan documented (34 issues across 4 milestones)
-- 🔄 Ready to begin Iteration 1 implementation
+### ✅ Completed - Iteration 1 Foundation
 
-### Next Immediate Tasks
-1. Write 3 detailed user scenarios in `/docs/iteration1/scenarios.md`
-2. Research and document UI/UX theory in `/docs/iteration1/theory_research.md`
-3. Create lo-fi prototypes (paper/Figma) in `/prototypes/iteration1/`
-4. Set up Qt project and implement basic video playback
-5. Prepare ethics documents before first evaluation
+#### Code Implementation
+- ✅ **OpenCV-based video player** (better codec support than QMediaPlayer)
+  - Smooth video playback with proper frame timing
+  - Timeline scrubbing and seeking
+  - Time display (current/total in MM:SS format)
+
+- ✅ **Enhanced playback controls**
+  - Play, Pause, Stop buttons
+  - Fast-forward (+10s) and Rewind (-10s) buttons
+  - Variable playback speed (0.25x, 0.5x, 0.75x, 1x, 1.25x, 1.5x, 2x)
+  - Volume control with visual indicator
+  - Mute button with icon toggle
+
+- ✅ **Display features**
+  - Fullscreen mode (F key or button)
+  - Responsive video widget
+  - Status bar feedback
+  - Auto-load sample video for testing
+
+- ✅ **Accessibility**
+  - Comprehensive keyboard shortcuts:
+    - Space: Play/Pause
+    - Left/Right arrows: Seek ±5s
+    - Up/Down arrows: Volume control
+    - F: Fullscreen toggle
+    - M: Mute toggle
+    - Escape: Exit fullscreen
+    - Ctrl+O: Open file
+    - Ctrl+Q: Quit
+  - Tooltip hints on all buttons
+  - Clear visual feedback
+
+#### Documentation
+- ✅ **User scenarios document** (`docs/iteration1/scenarios.md`)
+  - 3 detailed scenarios: Teacher, Student, Amateur
+  - Pain points and goals identified
+  - Design implications mapped to HCI principles
+
+- ✅ **Scoping analysis** (`docs/iteration1/scoping_analysis.md`)
+  - MoSCoW prioritization for all 3 iterations
+  - Technical feasibility assessment
+  - Risk management plan
+  - Resource allocation
+
+#### Technical Stack Confirmed
+- **Backend**: OpenCV for video decoding (resolves Windows codec issues)
+- **UI**: PyQt5 with custom video player widget
+- **Video**: OpenCV handles frames, no audio (acceptable for assessment)
+
+### 🔄 In Progress - Iteration 1 Completion
+
+#### Remaining Tasks
+1. ✅ ~~Write user scenarios~~ → DONE
+2. ✅ ~~Write scoping analysis~~ → DONE
+3. 📋 **Write UI/UX theory research document** (`docs/iteration1/theory_research.md`)
+   - Document HCI principles applied (Fitts's Law, Hick's Law, Gestalt, etc.)
+   - Competitive analysis (VLC, Windows Media Player, etc.)
+   - Citations for academic report
+4. 📋 **Create ethics documentation templates** (`docs/ethics/`)
+   - Informed consent form
+   - Participant information sheet
+   - Data privacy protocol
+   - Anonymization procedures
+5. 📋 **Conduct heuristic evaluation** (3-5 participants)
+   - Prepare evaluation materials (Nielsen's heuristics checklist)
+   - Recruit participants
+   - Execute evaluation sessions
+   - Document findings in `docs/iteration1/evaluation1_report.md`
+6. 📋 **Create iteration video 1** (45s-1m20s)
+   - Show design process
+   - Demonstrate prototype
+   - Explain evaluation approach
+   - Add subtitles
+
+### 📅 Next Immediate Tasks
+1. Complete UI/UX theory research document
+2. Prepare ethics templates (before any user testing)
+3. Create lo-fi prototype documentation (wireframes/sketches)
+4. Recruit heuristic evaluation participants
+5. Conduct and document first evaluation
 
 ## Key Contacts & Resources
 

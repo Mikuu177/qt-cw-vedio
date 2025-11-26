@@ -121,25 +121,47 @@ python src/main.py
 
 ## Current Status
 
-### Iteration 1 - Completed ✅
-- [x] Basic video playback (play, pause, stop)
-- [x] Timeline scrubbing with time display
-- [x] Volume control
-- [x] Keyboard shortcuts for accessibility
-- [x] File menu (open video)
-- [ ] User scenarios documentation (in progress)
-- [ ] Heuristic evaluation (pending)
-- [ ] Iteration video 1 (pending)
+### Iteration 1 - Code Complete ✅ | Documentation In Progress 🔄
 
-### Iteration 2 - Planned
-- Video editing features (trim, cut, multi-clip)
+#### Completed Features ✅
+- [x] OpenCV-based video playback (better codec support)
+- [x] Play, pause, stop controls
+- [x] Fast-forward (+10s) and rewind (-10s) buttons
+- [x] Variable playback speed (0.25x - 2x)
+- [x] Timeline scrubbing with time display (MM:SS format)
+- [x] Volume control with mute button
+- [x] Fullscreen mode (F key or button)
+- [x] Comprehensive keyboard shortcuts
+- [x] File menu (open video, quit)
+- [x] Auto-load sample video
+- [x] Status bar feedback
+
+#### Completed Documentation ✅
+- [x] User scenarios (3 detailed scenarios: Teacher, Student, Amateur)
+- [x] Scoping analysis (MoSCoW prioritization, technical feasibility)
+- [x] Project structure and README
+
+#### In Progress 🔄
+- [ ] UI/UX theory research document
+- [ ] Ethics documentation templates
+- [ ] Heuristic evaluation (recruiting participants)
+- [ ] Iteration video 1 (45s-1m20s)
+
+### Iteration 2 - Planned 📋
+- Video editing features (trim, cut, multi-clip timeline)
+- FFmpeg integration for video processing
+- Marker system for navigation
 - Enhanced accessibility (high contrast mode)
 - Cognitive walkthrough evaluation
+- Iteration video 2
 
-### Iteration 3 - Planned
+### Iteration 3 - Planned 📋
 - Internationalization (English/Chinese)
-- Export functionality
+- Export functionality with quality options
+- Undo/redo system (Command pattern)
+- Performance optimization
 - SUS questionnaire evaluation
+- Iteration video 3 + Showcase video
 
 ## License
 Academic project for University of Leeds - XJCO2811
