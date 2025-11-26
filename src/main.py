@@ -10,7 +10,8 @@ Based on the Tomeo application framework with enhanced features.
 
 import sys
 from PyQt5.QtWidgets import QApplication
-from ui.main_window import MainWindow
+# Use OpenCV backend for better codec support on Windows
+from ui.main_window_opencv import MainWindow
 
 
 def main():

@@ -5,8 +5,11 @@ PyQt5==5.15.10
 PyQt5-Qt5==5.15.2
 PyQt5-sip==12.13.0
 
-# Video Processing (to be used in later iterations)
-# FFmpeg wrapper for Python
+# Video Processing
+# OpenCV for video playback (better codec support than QMediaPlayer on Windows)
+opencv-python>=4.8.0
+
+# FFmpeg wrapper for Python (to be used for editing in Iteration 2)
 # ffmpeg-python==0.2.0
 
 # Development Tools (optional, recommended)

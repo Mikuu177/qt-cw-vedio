@@ -15,6 +15,7 @@ from PyQt5.QtWidgets import (
 from PyQt5.QtCore import Qt, QUrl
 from PyQt5.QtMultimedia import QMediaPlayer, QMediaContent
 from PyQt5.QtMultimediaWidgets import QVideoWidget
+import os
 
 
 class MainWindow(QMainWindow):
@@ -26,6 +27,7 @@ class MainWindow(QMainWindow):
         super().__init__()
         self.init_ui()
         self.init_media_player()
+        self.load_sample_video()  # Auto-load sample video for testing
 
     def init_ui(self):
         """
@@ -161,8 +163,12 @@ class MainWindow(QMainWindow):
         """
         Initialize the Qt media player and connect signals.
         """
+        print("[DEBUG] Initializing media player...")
         self.media_player = QMediaPlayer(None, QMediaPlayer.VideoSurface)
         self.media_player.setVideoOutput(self.video_widget)
+
+        print(f"[DEBUG] Media player service: {self.media_player.service()}")
+        print(f"[DEBUG] Media player availability: {self.media_player.availability()}")
 
         # Connect signals for state updates
         # Feedback principle: Keep user informed of system state
@@ -170,9 +176,11 @@ class MainWindow(QMainWindow):
         self.media_player.positionChanged.connect(self.position_changed)
         self.media_player.durationChanged.connect(self.duration_changed)
         self.media_player.error.connect(self.handle_error)
+        self.media_player.mediaStatusChanged.connect(self.media_status_changed)
 
         # Set initial volume
         self.media_player.setVolume(70)
+        print("[DEBUG] Media player initialized")
 
     def open_file(self):
         """
@@ -275,8 +283,34 @@ class MainWindow(QMainWindow):
         Handle media player errors.
         Error prevention & feedback: Inform user of issues.
         """
+        error_code = self.media_player.error()
         error_string = self.media_player.errorString()
+        print(f"[ERROR] Media player error: Code={error_code}, Message={error_string}")
         self.statusBar().showMessage(f"Error: {error_string}")
+
+    def media_status_changed(self, status):
+        """
+        Handle media status changes for debugging.
+
+        Args:
+            status: QMediaPlayer.MediaStatus enum value
+        """
+        status_names = {
+            0: "UnknownMediaStatus",
+            1: "NoMedia",
+            2: "LoadingMedia",
+            3: "LoadedMedia",
+            4: "StalledMedia",
+            5: "BufferingMedia",
+            6: "BufferedMedia",
+            7: "EndOfMedia",
+            8: "InvalidMedia"
+        }
+        status_name = status_names.get(status, f"Unknown({status})")
+        print(f"[DEBUG] Media status changed: {status_name}")
+
+        if status == 8:  # InvalidMedia
+            print("[ERROR] Invalid media! Codec may not be supported.")
 
     @staticmethod
     def format_time(milliseconds):
@@ -326,3 +360,52 @@ class MainWindow(QMainWindow):
             self.volume_slider.setValue(new_volume)
         else:
             super().keyPressEvent(event)
+
+    def load_sample_video(self):
+        """
+        Load sample video from the videos folder for testing and demonstration.
+        This method automatically loads a sample video when the application starts.
+        """
+        # Get the project root directory (parent of src)
+        current_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        videos_dir = os.path.join(current_dir, "..", "videos")
+
+        print(f"[DEBUG] Current dir: {current_dir}")
+        print(f"[DEBUG] Videos dir: {videos_dir}")
+        print(f"[DEBUG] Videos dir exists: {os.path.exists(videos_dir)}")
+
+        # Look for video files in the videos directory
+        if os.path.exists(videos_dir):
+            video_files = [f for f in os.listdir(videos_dir)
+                          if f.endswith(('.mp4', '.avi', '.mkv', '.mov'))]
+
+            print(f"[DEBUG] Found video files: {video_files}")
+
+            if video_files:
+                # Load the first video file found
+                sample_video = os.path.join(videos_dir, video_files[0])
+                sample_video = os.path.abspath(sample_video)
+
+                print(f"[DEBUG] Loading video: {sample_video}")
+                print(f"[DEBUG] File exists: {os.path.exists(sample_video)}")
+                print(f"[DEBUG] File size: {os.path.getsize(sample_video)} bytes")
+
+                # Load the video
+                url = QUrl.fromLocalFile(sample_video)
+                print(f"[DEBUG] QUrl: {url.toString()}")
+
+                self.media_player.setMedia(QMediaContent(url))
+                self.play_button.setEnabled(True)
+                self.stop_button.setEnabled(True)
+
+                # Update status bar
+                self.statusBar().showMessage(f"Loaded sample video: {video_files[0]}")
+                print(f"[DEBUG] Video loaded successfully")
+            else:
+                msg = "No sample videos found in videos/ folder"
+                self.statusBar().showMessage(msg)
+                print(f"[DEBUG] {msg}")
+        else:
+            msg = "Videos folder not found. Use File > Open to load a video."
+            self.statusBar().showMessage(msg)
+            print(f"[DEBUG] {msg}")
