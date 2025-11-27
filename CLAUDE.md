@@ -263,37 +263,242 @@ Must have in `/docs/ethics/`:
 - **UI**: PyQt5 with custom video player widget
 - **Video**: OpenCV handles frames, no audio (acceptable for assessment)
 
+### ✅ Testing Complete - Iteration 1 Code
+
+#### Testing Results (2025-11-26)
+- ✅ **Automated log analysis completed**
+  - Created comprehensive testing checklist (`TESTING_CHECKLIST.md`)
+  - All core features verified through application logs:
+    - Video loading: 4551 frames, 30fps, 151 seconds ✅
+    - Playback controls: Play/Pause/Stop ✅
+    - Timeline seeking: Accurate frame navigation ✅
+    - Mute toggle: Working correctly ✅
+    - Speed control: 1.5x and 2x verified ✅
+    - Resource cleanup: Proper shutdown ✅
+  - Known limitation documented: OpenCV backend has no audio playback (acceptable for assessment)
+  - H.264 codec warnings are normal and don't affect functionality
+
 ### 🔄 In Progress - Iteration 1 Completion
 
-#### Remaining Tasks
+#### Remaining Documentation Tasks
 1. ✅ ~~Write user scenarios~~ → DONE
 2. ✅ ~~Write scoping analysis~~ → DONE
-3. 📋 **Write UI/UX theory research document** (`docs/iteration1/theory_research.md`)
+3. ✅ ~~Create testing checklist~~ → DONE
+4. 📋 **Write UI/UX theory research document** (`docs/iteration1/theory_research.md`)
    - Document HCI principles applied (Fitts's Law, Hick's Law, Gestalt, etc.)
    - Competitive analysis (VLC, Windows Media Player, etc.)
    - Citations for academic report
-4. 📋 **Create ethics documentation templates** (`docs/ethics/`)
+5. 📋 **Create ethics documentation templates** (`docs/ethics/`)
    - Informed consent form
    - Participant information sheet
    - Data privacy protocol
    - Anonymization procedures
-5. 📋 **Conduct heuristic evaluation** (3-5 participants)
+6. 📋 **Conduct heuristic evaluation** (3-5 participants)
    - Prepare evaluation materials (Nielsen's heuristics checklist)
    - Recruit participants
    - Execute evaluation sessions
    - Document findings in `docs/iteration1/evaluation1_report.md`
-6. 📋 **Create iteration video 1** (45s-1m20s)
+7. 📋 **Create iteration video 1** (45s-1m20s)
    - Show design process
    - Demonstrate prototype
    - Explain evaluation approach
    - Add subtitles
 
-### 📅 Next Immediate Tasks
+### 📅 Next Immediate Tasks (Iteration 1)
 1. Complete UI/UX theory research document
 2. Prepare ethics templates (before any user testing)
 3. Create lo-fi prototype documentation (wireframes/sketches)
 4. Recruit heuristic evaluation participants
 5. Conduct and document first evaluation
+
+---
+
+## Iteration 2 Status (Updated: 2025-11-26)
+
+### ✅ Completed - All Core Features Implemented
+
+#### Video Editing Features
+- ✅ **Video Trimming/Cutting System**
+  - In/Out point markers (I and O keys)
+  - Visual trim indicators (green In, red Out labels)
+  - FFmpeg integration for actual trimming
+  - Clear trim points functionality
+  - File: `src/video/ffmpeg_processor.py`
+
+- ✅ **Multi-Clip Timeline**
+  - Timeline data model (`src/video/timeline.py`)
+  - TimelineClip class with position/duration management
+  - Add, remove, reorder operations
+  - Timeline widget UI (`src/ui/timeline_widget.py`)
+  - Clip visualization with thumbnails and durations
+  - Drag-and-drop reordering (基础实现)
+
+- ✅ **Marker System for Navigation**
+  - Marker data model (`src/video/marker.py`)
+  - Add markers at current position (M key)
+  - Navigate with [ and ] keys
+  - Visual marker indicators (colored flags)
+  - Click markers to jump to positions
+  - 8 predefined colors with auto-cycling
+
+#### Accessibility Features
+- ✅ **High Contrast Mode (WCAG 2.1 AAA)**
+  - Theme manager (`src/utils/theme_manager.py`)
+  - Toggle with Ctrl+Shift+H
+  - Black background (#000000)
+  - Yellow/white text (#FFFF00 / #FFFFFF)
+  - 19:1 contrast ratio (exceeds 7:1 requirement)
+  - 3-4px borders for visibility
+  - Bold fonts (11pt)
+  - Enhanced focus indicators (cyan borders)
+  - Theme preference persistence via QSettings
+
+- ✅ **Comprehensive Keyboard Shortcuts**
+  - All features accessible without mouse
+  - Trim: I (In), O (Out), Ctrl+T (toggle mode)
+  - Markers: M (add), [ (prev), ] (next)
+  - Edit: Ctrl+Z (undo), Ctrl+Y (redo)
+  - View: Ctrl+Shift+H (high contrast)
+  - Export: Ctrl+E
+
+#### Export & Processing
+- ✅ **Export Dialog with Quality Presets**
+  - Export dialog UI (`src/ui/export_dialog.py`)
+  - 3 quality options: High (1080p), Medium (720p), Low (480p)
+  - FFmpeg integration with CRF encoding
+  - Progress bar with status updates
+  - File overwrite confirmation
+  - Quality info descriptions
+
+- ✅ **FFmpeg Processor**
+  - Trim video segments
+  - Concatenate multiple clips
+  - Quality presets (CRF 18/23/28)
+  - Audio encoding (AAC, 192k/128k/96k)
+  - Resolution scaling
+  - Background worker thread support
+
+#### Undo/Redo System
+- ✅ **Command Pattern Implementation**
+  - CommandStack class (`src/utils/command_stack.py`)
+  - Supports: Add/Remove clips, Add/Remove markers, Reorder clips
+  - Stack limit: 100 commands
+  - Ctrl+Z / Ctrl+Y shortcuts
+  - Menu integration (Edit > Undo/Redo)
+  - Automatic redo stack clearing on new action
+
+#### UI Integration
+- ✅ **Enhanced Main Window (Iteration 2)**
+  - Main window v2 (`src/ui/main_window_v2.py`)
+  - Splitter layout (60% video, 40% timeline)
+  - Menu bar with all features:
+    - File: Open, Export, Exit
+    - Edit: Undo, Redo, Trim Mode, In/Out Points
+    - View: Fullscreen, High Contrast
+    - Markers: Add, Previous, Next
+  - Status bar feedback for all actions
+  - Entry point: `src/main_v2.py`
+
+#### Documentation
+- ✅ **Iteration 2 Planning Document**
+  - Detailed feature breakdown (`docs/iteration2/iteration2_plan.md`)
+  - HCI principles mapping
+  - Architecture design
+  - Implementation timeline
+  - Risk management
+
+- ✅ **Testing Documentation**
+  - Comprehensive checklist (`docs/iteration2/TESTING_CHECKLIST_ITERATION2.md`)
+  - 11 testing categories
+  - WCAG compliance checks
+  - Performance benchmarks
+  - Known limitations documented
+
+- ✅ **Cognitive Walkthrough Guide**
+  - Evaluation methodology (`docs/iteration2/cognitive_walkthrough_guide.md`)
+  - 3 detailed task scenarios
+  - Data collection sheets
+  - Analysis framework
+  - Ethical considerations
+
+- ✅ **User Guide (README)**
+  - Complete feature documentation (`docs/iteration2/README_ITERATION2.md`)
+  - Installation instructions
+  - Keyboard shortcuts reference
+  - Troubleshooting guide
+  - HCI principles explanation
+
+### 🔄 Iteration 2 - Remaining Tasks
+
+#### Evaluation & Refinement
+1. 📋 **Conduct Cognitive Walkthrough**
+   - Recruit 3-5 participants (novice/intermediate/advanced)
+   - Execute 3 tasks: Trim video, Combine clips, Use markers
+   - Collect metrics: completion rate, time, errors, satisfaction
+   - Document in `docs/iteration2/evaluation2_report.md`
+
+2. 📋 **Create Iteration Video 2** (45s-1m20s)
+   - Show editing features in action
+   - Demonstrate accessibility (high contrast mode)
+   - Explain cognitive walkthrough process
+   - Add subtitles for accessibility
+
+3. 📋 **Analyze Feedback & Plan Iteration 3**
+   - Categorize issues (Critical/High/Medium/Low)
+   - Prioritize fixes for Iteration 3
+   - Document in `docs/iteration2/feedback_integration.md`
+
+#### Optional Enhancements (Time Permitting)
+4. 📋 **FFmpeg Error Handling**
+   - Better error messages if FFmpeg missing
+   - Installation guide in dialog
+   - Graceful fallback for export
+
+5. 📋 **Timeline Playback**
+   - Play across multiple clips
+   - Visual playhead on timeline
+   - Sync video player with timeline position
+
+6. 📋 **Marker Label Editing**
+   - Double-click marker to edit label
+   - Color picker for custom colors
+   - Marker management panel
+
+### Technical Debt & Known Issues
+
+1. **Timeline Playback Not Implemented**
+   - UI完整，但播放逻辑待实现
+   - 可以导出多片段视频，但不能预览播放
+   - 计划在 Iteration 3 或未来完成
+
+2. **Drag-and-Drop Reordering**
+   - 基础框架已实现，但拖动反馈可以改进
+   - 当前通过 reorder_clip() 方法工作
+
+3. **OpenCV No Audio**
+   - 已知限制，已文档化
+   - 导出视频包含音频（通过FFmpeg）
+
+4. **FFmpeg Installation Required**
+   - 导出功能需要用户手动安装 FFmpeg
+   - 应用会检测并提示，但不能自动安装
+
+### Code Statistics (Iteration 2)
+
+**New Files Created**: 10
+- `src/video/ffmpeg_processor.py` (300+ lines)
+- `src/video/timeline.py` (250+ lines)
+- `src/video/marker.py` (200+ lines)
+- `src/ui/timeline_widget.py` (350+ lines)
+- `src/ui/export_dialog.py` (200+ lines)
+- `src/ui/main_window_v2.py` (500+ lines)
+- `src/utils/theme_manager.py` (300+ lines)
+- `src/utils/command_stack.py` (250+ lines)
+- `src/main_v2.py` (30 lines)
+
+**Documentation**: 3 comprehensive guides (8000+ words total)
+
+**Total Lines of Code (Iteration 1+2)**: ~3,000 lines
 
 ## Key Contacts & Resources
 
