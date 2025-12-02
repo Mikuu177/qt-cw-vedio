@@ -1,0 +1,130 @@
+{
+  "window": {
+    "title": "视频编辑器/播放器 - XJCO2811（迭代2）"
+  },
+  "status": {
+    "ready": "就绪",
+    "speed": "播放速度：{speed}",
+    "muted": "已静音",
+    "unmuted": "已取消静音",
+    "hc_on": "已启用高对比度模式",
+    "hc_off": "已关闭高对比度模式",
+    "trim_on": "裁剪模式：按 I 设置入点，按 O 设置出点",
+    "trim_off": "已关闭裁剪模式",
+    "in_set": "入点已设置在 {time}",
+    "out_set": "出点已设置在 {time}",
+    "trim_cleared": "已清除裁剪点",
+    "marker_added": "已在 {time} 添加标记",
+    "marker_prev": "跳转到标记：{label}",
+    "marker_next": "跳转到标记：{label}",
+    "export_start": "开始导出..."
+  },
+  "menu": {
+    "file": "文件(&F)",
+    "edit": "编辑(&E)",
+    "view": "视图(&V)",
+    "markers": "标记(&M)",
+    "help": "帮助(&H)",
+    "language": "语言(&L)"
+  },
+  "action": {
+    "open": "打开视频(&O)...",
+    "export": "导出视频(&E)...",
+    "exit": "退出(&X)",
+    "undo": "撤销(&U)",
+    "redo": "重做(&R)",
+    "trim_mode": "裁剪模式(&T)",
+    "set_in": "设置入点(&I)",
+    "set_out": "设置出点(&O)",
+    "clear_trim": "清除裁剪点",
+    "fullscreen": "全屏(&F)",
+    "high_contrast": "高对比度模式(&H)",
+    "add_marker": "添加标记(&A)",
+    "prev_marker": "上一个标记(&P)",
+    "next_marker": "下一个标记(&N)",
+    "shortcuts": "键盘快捷键(&K)",
+    "about": "关于(&A)",
+    "lang_en": "English",
+    "lang_zh": "中文"
+  },
+  "label": {
+    "speed": "速度：",
+    "volume": "音量：",
+    "current_time": "00:00",
+    "total_time": "00:00"
+  },
+  "tooltip": {
+    "rewind": "后退 10 秒",
+    "play": "播放 (Space)",
+    "stop": "停止",
+    "forward": "前进 10 秒",
+    "mute": "静音 (M)",
+    "fullscreen": "全屏 (F)"
+  },
+  "timeline": {
+    "title": "时间轴",
+    "add": "+ 添加片段",
+    "add_tip": "向时间轴添加视频片段",
+    "clear": "清空时间轴",
+    "clear_tip": "移除所有片段",
+    "dialog_add_title": "添加视频片段",
+    "filter": "视频文件 (*.mp4 *.avi *.mkv *.mov *.wmv);;所有文件 (*.*)",
+    "no_clips": "无片段",
+    "info": "{count} 个片段 | 总时长：{secs}s",
+    "confirm_clear_title": "清空时间轴",
+    "confirm_clear_msg": "确认移除时间轴上的所有片段吗？",
+    "context_delete": "删除片段"
+  },
+  "export": {
+    "title": "导出视频",
+    "output": {
+      "group": "输出文件",
+      "placeholder": "选择输出文件路径...",
+      "browse": "浏览..."
+    },
+    "quality": {
+      "group": "质量设置",
+      "label": "质量预设：",
+      "opt_high": "高 (1080p, CRF 18)",
+      "opt_medium": "中 (720p, CRF 23)",
+      "opt_low": "低 (480p, CRF 28)",
+      "info_high": "最佳质量 | 文件较大 | H.264, 1080p, CRF 18, 192k 音频",
+      "info_medium": "平衡质量 | 文件适中 | H.264, 720p, CRF 23, 128k 音频",
+      "info_low": "体积较小 | 质量较低 | H.264, 480p, CRF 28, 96k 音频"
+    },
+    "btn": {
+      "export": "导出",
+      "cancel": "取消"
+    },
+    "save": {
+      "title": "另存为"
+    },
+    "warn": {
+      "no_output": {"title": "未选择输出文件", "msg": "请选择输出文件路径。"},
+      "exists": {"title": "文件已存在", "msg": "文件 '{name}' 已存在。\n是否覆盖？"}
+    },
+    "status": {"preparing": "正在准备导出..."},
+    "result": {
+      "success_title": "导出成功",
+      "success_msg": "视频已成功导出到：\n{path}",
+      "success_inline": "✓ 导出完成：{path}",
+      "fail_title": "导出失败",
+      "fail_msg": "导出失败：\n{err}",
+      "fail_inline": "✗ 导出失败：{err}"
+    }
+  },
+  "help": {
+    "title": "键盘快捷键与帮助",
+    "tabs": {"file": "文件", "edit": "编辑", "playback": "播放", "markers": "标记", "view": "视图"},
+    "table": {"shortcut": "快捷键", "action": "操作", "desc": "说明"},
+    "btn_close": "关闭"
+  },
+  "dialog": {
+    "language_changed_title": "语言已更改",
+    "language_changed_msg": "语言已更改。请重启应用以应用全部翻译。",
+    "ffmpeg_missing_title": "未找到 FFmpeg",
+    "no_video_to_export_title": "无可导出的视频",
+    "no_video_to_export_msg": "请先加载视频或向时间轴添加片段后再导出。",
+    "language": "语言"
+  }
+}

@@ -11,6 +11,12 @@ from PyQt5.QtWidgets import (
 from PyQt5.QtCore import Qt, pyqtSignal
 import os
 
+# i18n
+import os as _os
+import sys as _sys
+_sys.path.insert(0, _os.path.dirname(_os.path.dirname(_os.path.abspath(__file__))))
+from utils.i18n_manager import i18n
+
 
 class ExportDialog(QDialog):
     """
@@ -29,7 +35,7 @@ class ExportDialog(QDialog):
         self.output_path = ""
         self.quality = "high"
 
-        self.setWindowTitle("Export Video")
+        self.setWindowTitle(i18n.t("export.title", "Export Video"))
         self.setModal(True)
         self.setMinimumWidth(500)
 
@@ -41,24 +47,24 @@ class ExportDialog(QDialog):
         self.setLayout(layout)
 
         # Title
-        title = QLabel("Export Video")
+        title = QLabel(i18n.t("export.title", "Export Video"))
         title.setStyleSheet("font-size: 14pt; font-weight: bold;")
         layout.addWidget(title)
 
         layout.addSpacing(10)
 
         # Output file section
-        output_group = QGroupBox("Output File")
+        output_group = QGroupBox(i18n.t("export.output.group", "Output File"))
         output_layout = QVBoxLayout()
         output_group.setLayout(output_layout)
 
         file_layout = QHBoxLayout()
         self.path_edit = QLineEdit()
-        self.path_edit.setPlaceholderText("Select output file path...")
+        self.path_edit.setPlaceholderText(i18n.t("export.output.placeholder", "Select output file path..."))
         self.path_edit.setReadOnly(True)
         file_layout.addWidget(self.path_edit)
 
-        browse_btn = QPushButton("Browse...")
+        browse_btn = QPushButton(i18n.t("export.output.browse", "Browse..."))
         browse_btn.clicked.connect(self.browse_output)
         file_layout.addWidget(browse_btn)
 
@@ -66,16 +72,20 @@ class ExportDialog(QDialog):
         layout.addWidget(output_group)
 
         # Quality settings section
-        quality_group = QGroupBox("Quality Settings")
+        quality_group = QGroupBox(i18n.t("export.quality.group", "Quality Settings"))
         quality_layout = QVBoxLayout()
         quality_group.setLayout(quality_layout)
 
         quality_select_layout = QHBoxLayout()
-        quality_label = QLabel("Quality Preset:")
+        quality_label = QLabel(i18n.t("export.quality.label", "Quality Preset:"))
         quality_select_layout.addWidget(quality_label)
 
         self.quality_combo = QComboBox()
-        self.quality_combo.addItems(["High (1080p, CRF 18)", "Medium (720p, CRF 23)", "Low (480p, CRF 28)"])
+        self.quality_combo.addItems([
+            i18n.t("export.quality.opt_high", "High (1080p, CRF 18)"),
+            i18n.t("export.quality.opt_medium", "Medium (720p, CRF 23)"),
+            i18n.t("export.quality.opt_low", "Low (480p, CRF 28)")
+        ])
         self.quality_combo.setCurrentIndex(0)
         self.quality_combo.currentIndexChanged.connect(self.on_quality_changed)
         quality_select_layout.addWidget(self.quality_combo)
@@ -110,12 +120,12 @@ class ExportDialog(QDialog):
         button_layout = QHBoxLayout()
         button_layout.addStretch()
 
-        self.export_btn = QPushButton("Export")
+        self.export_btn = QPushButton(i18n.t("export.btn.export", "Export"))
         self.export_btn.setMinimumWidth(100)
         self.export_btn.clicked.connect(self.start_export)
         button_layout.addWidget(self.export_btn)
 
-        self.cancel_btn = QPushButton("Cancel")
+        self.cancel_btn = QPushButton(i18n.t("export.btn.cancel", "Cancel"))
         self.cancel_btn.setMinimumWidth(100)
         self.cancel_btn.clicked.connect(self.reject)
         button_layout.addWidget(self.cancel_btn)
@@ -126,7 +136,7 @@ class ExportDialog(QDialog):
         """Browse for output file."""
         file_path, _ = QFileDialog.getSaveFileName(
             self,
-            "Save Video As",
+            i18n.t("export.save.title", "Save Video As"),
             "",
             "MP4 Video (*.mp4);;All Files (*.*)"
         )
@@ -148,9 +158,9 @@ class ExportDialog(QDialog):
     def update_quality_info(self):
         """Update quality information text."""
         info_text = {
-            "high": "Best quality | Larger file size | H.264, 1080p, CRF 18, 192k audio",
-            "medium": "Balanced quality | Moderate file size | H.264, 720p, CRF 23, 128k audio",
-            "low": "Smaller file size | Lower quality | H.264, 480p, CRF 28, 96k audio"
+            "high": i18n.t("export.quality.info_high", "Best quality | Larger file size | H.264, 1080p, CRF 18, 192k audio"),
+            "medium": i18n.t("export.quality.info_medium", "Balanced quality | Moderate file size | H.264, 720p, CRF 23, 128k audio"),
+            "low": i18n.t("export.quality.info_low", "Smaller file size | Lower quality | H.264, 480p, CRF 28, 96k audio")
         }
         self.quality_info.setText(info_text.get(self.quality, ""))
 
@@ -159,8 +169,8 @@ class ExportDialog(QDialog):
         if not self.output_path:
             QMessageBox.warning(
                 self,
-                "No Output File",
-                "Please select an output file path."
+                i18n.t("export.warn.no_output.title", "No Output File"),
+                i18n.t("export.warn.no_output.msg", "Please select an output file path.")
             )
             return
 
@@ -168,8 +178,8 @@ class ExportDialog(QDialog):
         if os.path.exists(self.output_path):
             reply = QMessageBox.question(
                 self,
-                "File Exists",
-                f"The file '{os.path.basename(self.output_path)}' already exists.\nOverwrite?",
+                i18n.t("export.warn.exists.title", "File Exists"),
+                i18n.t("export.warn.exists.msg", "The file '{name}' already exists.\nOverwrite?").replace("{name}", os.path.basename(self.output_path)),
                 QMessageBox.Yes | QMessageBox.No
             )
 
@@ -181,7 +191,7 @@ class ExportDialog(QDialog):
         self.quality_combo.setEnabled(False)
         self.progress_bar.setVisible(True)
         self.status_label.setVisible(True)
-        self.status_label.setText("Preparing export...")
+        self.status_label.setText(i18n.t("export.status.preparing", "Preparing export..."))
 
         self.export_started.emit()
 
@@ -205,12 +215,12 @@ class ExportDialog(QDialog):
 
         if success:
             self.status_label.setStyleSheet("font-size: 9pt; color: #00aa00;")
-            self.status_label.setText(f"✓ Export completed: {message}")
+            self.status_label.setText(i18n.t("export.result.success_inline", "✓ Export completed: {path}").replace("{path}", message))
 
             QMessageBox.information(
                 self,
-                "Export Successful",
-                f"Video exported successfully to:\n{message}"
+                i18n.t("export.result.success_title", "Export Successful"),
+                i18n.t("export.result.success_msg", "Video exported successfully to:\n{path}").replace("{path}", message)
             )
 
             self.export_completed.emit(True, message)
@@ -218,12 +228,12 @@ class ExportDialog(QDialog):
 
         else:
             self.status_label.setStyleSheet("font-size: 9pt; color: #cc0000;")
-            self.status_label.setText(f"✗ Export failed: {message}")
+            self.status_label.setText(i18n.t("export.result.fail_inline", "✗ Export failed: {err}").replace("{err}", message))
 
             QMessageBox.critical(
                 self,
-                "Export Failed",
-                f"Export failed:\n{message}"
+                i18n.t("export.result.fail_title", "Export Failed"),
+                i18n.t("export.result.fail_msg", "Export failed:\n{err}").replace("{err}", message)
             )
 
             self.export_completed.emit(False, message)

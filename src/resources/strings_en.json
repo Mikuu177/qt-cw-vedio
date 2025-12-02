@@ -1,0 +1,131 @@
+{
+  "window": {
+    "title": "Video Editor/Player - XJCO2811 (Iteration 2)"
+  },
+  "status": {
+    "ready": "Ready",
+    "speed": "Playback speed: {speed}",
+    "muted": "Muted",
+    "unmuted": "Unmuted",
+    "hc_on": "High contrast mode enabled",
+    "hc_off": "High contrast mode disabled",
+    "trim_on": "Trim mode: Press I for In point, O for Out point",
+    "trim_off": "Trim mode disabled",
+    "in_set": "In point set at {time}",
+    "out_set": "Out point set at {time}",
+    "trim_cleared": "Trim points cleared",
+    "marker_added": "Marker added at {time}",
+    "marker_prev": "Jumped to marker: {label}",
+    "marker_next": "Jumped to marker: {label}",
+    "export_start": "Starting export..."
+  },
+  "menu": {
+    "file": "&File",
+    "edit": "&Edit",
+    "view": "&View",
+    "markers": "&Markers",
+    "help": "&Help",
+    "language": "&Language"
+  },
+  "action": {
+    "open": "&Open Video...",
+    "export": "&Export Video...",
+    "exit": "E&xit",
+    "undo": "&Undo",
+    "redo": "&Redo",
+    "trim_mode": "&Trim Mode",
+    "set_in": "Set &In Point",
+    "set_out": "Set &Out Point",
+    "clear_trim": "Clear Trim Points",
+    "fullscreen": "&Fullscreen",
+    "high_contrast": "&High Contrast Mode",
+    "add_marker": "&Add Marker",
+    "prev_marker": "&Previous Marker",
+    "next_marker": "&Next Marker",
+    "shortcuts": "&Keyboard Shortcuts",
+    "about": "&About",
+    "lang_en": "English",
+    "lang_zh": "中文"
+  },
+  "label": {
+    "speed": "Speed:",
+    "volume": "Volume:",
+    "current_time": "00:00",
+    "total_time": "00:00"
+  },
+  "tooltip": {
+    "rewind": "Rewind 10s",
+    "play": "Play (Space)",
+    "stop": "Stop",
+    "forward": "Forward 10s",
+    "mute": "Mute (M)",
+    "fullscreen": "Fullscreen (F)"
+  },
+  "timeline": {
+    "title": "Timeline",
+    "add": "+ Add Clip",
+    "add_tip": "Add video clip to timeline",
+    "clear": "Clear Timeline",
+    "clear_tip": "Remove all clips",
+    "dialog_add_title": "Add Video Clip",
+    "filter": "Video Files (*.mp4 *.avi *.mkv *.mov *.wmv);;All Files (*.*)",
+    "no_clips": "No clips",
+    "info": "{count} clip(s) | Total duration: {secs}s",
+    "confirm_clear_title": "Clear Timeline",
+    "confirm_clear_msg": "Remove all clips from timeline?",
+    "context_delete": "Delete Clip"
+  },
+  "export": {
+    "title": "Export Video",
+    "output": {
+      "group": "Output File",
+      "placeholder": "Select output file path...",
+      "browse": "Browse..."
+    },
+    "quality": {
+      "group": "Quality Settings",
+      "label": "Quality Preset:",
+      "opt_high": "High (1080p, CRF 18)",
+      "opt_medium": "Medium (720p, CRF 23)",
+      "opt_low": "Low (480p, CRF 28)",
+      "info_high": "Best quality | Larger file size | H.264, 1080p, CRF 18, 192k audio",
+      "info_medium": "Balanced quality | Moderate file size | H.264, 720p, CRF 23, 128k audio",
+      "info_low": "Smaller file size | Lower quality | H.264, 480p, CRF 28, 96k audio"
+    },
+    "btn": {
+      "export": "Export",
+      "cancel": "Cancel"
+    },
+    "save": {
+      "title": "Save Video As"
+    },
+    "warn": {
+      "no_output": {"title": "No Output File", "msg": "Please select an output file path."},
+      "exists": {"title": "File Exists", "msg": "The file '{name}' already exists.\nOverwrite?"}
+    },
+    "status": {"preparing": "Preparing export..."},
+    "result": {
+      "success_title": "Export Successful",
+      "success_msg": "Video exported successfully to:\n{path}",
+      "success_inline": "✓ Export completed: {path}",
+      "fail_title": "Export Failed",
+      "fail_msg": "Export failed:\n{err}",
+      "fail_inline": "✗ Export failed: {err}"
+    }
+  },
+  "help": {
+    "title": "Keyboard Shortcuts & Help",
+    "tabs": {"file": "File", "edit": "Edit", "playback": "Playback", "markers": "Markers", "view": "View"},
+    "table": {"shortcut": "Shortcut", "action": "Action", "desc": "Description"},
+    "btn_close": "Close"
+  },
+  "dialog": {
+    "language_changed_title": "Language Changed",
+    "language_changed_msg": "Language has been changed. Please restart the application to apply all translations.",
+    "ffmpeg_missing_title": "FFmpeg Not Found",
+    "ffmpeg_missing_msg": "FFmpeg is required for video export but was not found on your system.\n\nTo install FFmpeg:\n1. Download from: https://ffmpeg.org/download.html\n2. Extract to a folder (e.g., C:\\ffmpeg)\n3. Add the 'bin' folder to your system PATH\n4. Restart this application\n\nWould you like to continue without FFmpeg? (Export will fail)",
+    "no_video_to_export_title": "No Video to Export",
+    "no_video_to_export_msg": "Please load a video or add clips to the timeline before exporting.",
+    "language": "Language"
+  }
+}

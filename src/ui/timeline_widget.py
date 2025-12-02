@@ -6,7 +6,7 @@ Visual timeline for multi-clip editing with drag-and-drop reordering.
 
 from PyQt5.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QScrollArea,
-    QPushButton, QLabel, QFrame, QFileDialog, QMenu, QAction
+    QPushButton, QLabel, QFrame, QFileDialog, QMenu, QAction, QMessageBox
 )
 from PyQt5.QtCore import Qt, pyqtSignal, QRect, QPoint, QSize
 from PyQt5.QtGui import QPainter, QColor, QPen, QBrush, QFont, QMouseEvent
@@ -18,6 +18,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from video.timeline import Timeline, TimelineClip
 from video.marker import MarkerManager, Marker
+from utils.i18n_manager import i18n
 
 
 class ClipItem(QFrame):
@@ -114,7 +115,7 @@ class ClipItem(QFrame):
         """Show context menu on right-click."""
         menu = QMenu(self)
 
-        delete_action = QAction("Delete Clip", self)
+        delete_action = QAction(i18n.t("timeline.context_delete", "Delete Clip"), self)
         delete_action.triggered.connect(lambda: self.delete_requested.emit(self.clip.id))
         menu.addAction(delete_action)
 
@@ -200,21 +201,21 @@ class TimelineWidget(QWidget):
 
         # Header
         header_layout = QHBoxLayout()
-        header_label = QLabel("Timeline")
+        header_label = QLabel(i18n.t("timeline.title", "Timeline"))
         header_label.setStyleSheet("font-size: 12pt; font-weight: bold;")
         header_layout.addWidget(header_label)
 
         header_layout.addStretch()
 
         # Add clip button
-        self.add_clip_btn = QPushButton("+ Add Clip")
-        self.add_clip_btn.setToolTip("Add video clip to timeline")
+        self.add_clip_btn = QPushButton(i18n.t("timeline.add", "+ Add Clip"))
+        self.add_clip_btn.setToolTip(i18n.t("timeline.add_tip", "Add video clip to timeline"))
         self.add_clip_btn.clicked.connect(self.add_clip_dialog)
         header_layout.addWidget(self.add_clip_btn)
 
         # Clear timeline button
-        self.clear_btn = QPushButton("Clear Timeline")
-        self.clear_btn.setToolTip("Remove all clips")
+        self.clear_btn = QPushButton(i18n.t("timeline.clear", "Clear Timeline"))
+        self.clear_btn.setToolTip(i18n.t("timeline.clear_tip", "Remove all clips"))
         self.clear_btn.clicked.connect(self.clear_timeline)
         header_layout.addWidget(self.clear_btn)
 
@@ -242,7 +243,7 @@ class TimelineWidget(QWidget):
         main_layout.addWidget(scroll_area)
 
         # Timeline info
-        self.info_label = QLabel("No clips")
+        self.info_label = QLabel(i18n.t("timeline.no_clips", "No clips"))
         self.info_label.setStyleSheet("font-size: 9pt; color: #666;")
         main_layout.addWidget(self.info_label)
 
@@ -301,21 +302,14 @@ class TimelineWidget(QWidget):
         """Show dialog to add a clip."""
         file_path, _ = QFileDialog.getOpenFileName(
             self,
-            "Add Video Clip",
+            i18n.t("timeline.dialog_add_title", "Add Video Clip"),
             "",
-            "Video Files (*.mp4 *.avi *.mkv *.mov *.wmv);;All Files (*.*)"
+            i18n.t("timeline.filter", "Video Files (*.mp4 *.avi *.mkv *.mov *.wmv);;All Files (*.*)")
         )
 
         if file_path:
-            # Get video duration (would use ffprobe in production)
-            # For now, use placeholder
-            from video.ffmpeg_processor import get_video_info
-
-            info = get_video_info(file_path)
-            if info:
-                duration_ms = info["duration_ms"]
-            else:
-                duration_ms = 10000  # Placeholder: 10 seconds
+            # Get video duration using multiple methods
+            duration_ms = self.get_video_duration(file_path)
 
             self.timeline.add_clip(
                 source_path=file_path,
@@ -323,14 +317,51 @@ class TimelineWidget(QWidget):
                 duration_ms=duration_ms
             )
 
+    def get_video_duration(self, file_path):
+        """
+        Get video duration using multiple fallback methods.
+
+        Try in order:
+        1. FFprobe (most accurate, requires FFmpeg)
+        2. OpenCV (works without FFmpeg)
+        3. Placeholder (10 seconds)
+        """
+        # Method 1: Try FFprobe (if FFmpeg installed)
+        try:
+            from video.ffmpeg_processor import get_video_info
+            info = get_video_info(file_path)
+            if info and "duration_ms" in info:
+                print(f"[Timeline] Got duration from FFprobe: {info['duration_ms']}ms")
+                return info["duration_ms"]
+        except Exception as e:
+            print(f"[Timeline] FFprobe unavailable: {e}")
+
+        # Method 2: Try OpenCV (fallback)
+        try:
+            import cv2
+            cap = cv2.VideoCapture(file_path)
+            if cap.isOpened():
+                fps = cap.get(cv2.CAP_PROP_FPS)
+                frame_count = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
+                if fps > 0 and frame_count > 0:
+                    duration_ms = int((frame_count / fps) * 1000)
+                    cap.release()
+                    print(f"[Timeline] Got duration from OpenCV: {duration_ms}ms ({frame_count} frames at {fps:.2f} fps)")
+                    return duration_ms
+                cap.release()
+        except Exception as e:
+            print(f"[Timeline] OpenCV fallback failed: {e}")
+
+        # Method 3: Use placeholder
+        print("[Timeline] Using placeholder duration: 10000ms (10 seconds)")
+        return 10000  # Placeholder: 10 seconds
+
     def clear_timeline(self):
         """Clear all clips from timeline."""
-        from PyQt5.QtWidgets import QMessageBox
-
         reply = QMessageBox.question(
             self,
-            "Clear Timeline",
-            "Remove all clips from timeline?",
+            i18n.t("timeline.confirm_clear_title", "Clear Timeline"),
+            i18n.t("timeline.confirm_clear_msg", "Remove all clips from timeline?"),
             QMessageBox.Yes | QMessageBox.No
         )
 
@@ -344,10 +375,11 @@ class TimelineWidget(QWidget):
         duration_sec = duration_ms / 1000.0
 
         if count == 0:
-            self.info_label.setText("No clips")
+            self.info_label.setText(i18n.t("timeline.no_clips", "No clips"))
         else:
+            template = i18n.t("timeline.info", f"{count} clip(s) | Total duration: {duration_sec:.1f}s")
             self.info_label.setText(
-                f"{count} clip(s) | Total duration: {duration_sec:.1f}s"
+                template.replace("{count}", str(count)).replace("{secs}", f"{duration_sec:.1f}")
             )
 
     def on_marker_added(self, marker: Marker):
