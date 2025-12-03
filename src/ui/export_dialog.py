@@ -6,7 +6,7 @@ Allows users to export edited videos with quality presets.
 
 from PyQt5.QtWidgets import (
     QDialog, QVBoxLayout, QHBoxLayout, QLabel, QPushButton,
-    QComboBox, QLineEdit, QFileDialog, QProgressBar, QMessageBox, QGroupBox
+    QComboBox, QLineEdit, QFileDialog, QProgressBar, QMessageBox, QGroupBox, QCheckBox, QSpinBox
 )
 from PyQt5.QtCore import Qt, pyqtSignal
 import os
@@ -101,6 +101,35 @@ class ExportDialog(QDialog):
 
         layout.addWidget(quality_group)
 
+        # Transitions section
+        trans_group = QGroupBox(i18n.t("export.transitions.group", "Transitions"))
+        trans_layout = QVBoxLayout()
+        trans_group.setLayout(trans_layout)
+
+        trans_row = QHBoxLayout()
+        self.trans_checkbox = QCheckBox(i18n.t("export.transitions.enable", "Enable crossfade between clips"))
+        self.trans_checkbox.setChecked(False)
+        trans_row.addWidget(self.trans_checkbox)
+        trans_row.addStretch()
+        trans_layout.addLayout(trans_row)
+
+        dur_row = QHBoxLayout()
+        dur_label = QLabel(i18n.t("export.transitions.duration_label", "Duration (ms):"))
+        self.trans_spin = QSpinBox()
+        self.trans_spin.setRange(100, 3000)
+        self.trans_spin.setSingleStep(100)
+        self.trans_spin.setValue(500)
+        self.trans_spin.setEnabled(False)
+        dur_row.addWidget(dur_label)
+        dur_row.addWidget(self.trans_spin)
+        dur_row.addStretch()
+        trans_layout.addLayout(dur_row)
+
+        # enable/disable duration with checkbox
+        self.trans_checkbox.toggled.connect(self.trans_spin.setEnabled)
+
+        layout.addWidget(trans_group)
+
         # Progress bar
         self.progress_bar = QProgressBar()
         self.progress_bar.setRange(0, 100)
@@ -194,6 +223,10 @@ class ExportDialog(QDialog):
         self.status_label.setText(i18n.t("export.status.preparing", "Preparing export..."))
 
         self.export_started.emit()
+        
+        # Accept the dialog to close it and return to parent
+        # Parent will handle the actual export
+        self.accept()
 
         # Note: Actual export would be handled by parent window
         # This dialog just collects settings
@@ -247,7 +280,9 @@ class ExportDialog(QDialog):
         """
         return {
             "output_path": self.output_path,
-            "quality": self.quality
+            "quality": self.quality,
+            "transitions_enabled": bool(self.trans_checkbox.isChecked()) if hasattr(self, 'trans_checkbox') else False,
+            "transition_ms": int(self.trans_spin.value()) if hasattr(self, 'trans_spin') else 500
         }
 
 

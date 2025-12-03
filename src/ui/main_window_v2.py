@@ -13,7 +13,7 @@ Integrates all video editing features:
 
 from PyQt5.QtWidgets import (
     QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, QSplitter,
-    QPushButton, QSlider, QLabel, QFileDialog, QStyle, QAction, QComboBox, QMessageBox
+    QPushButton, QSlider, QLabel, QFileDialog, QStyle, QAction, QComboBox, QMessageBox, QDockWidget, QInputDialog, QToolBar, QDialog, QProgressBar
 )
 from PyQt5.QtCore import Qt, QSettings
 import os
@@ -28,10 +28,15 @@ from video.marker import MarkerManager
 from ui.timeline_widget import TimelineWidget
 from ui.export_dialog import ExportDialog
 from ui.help_dialog import HelpDialog
+from ui.inspector_panel import InspectorPanel
+from ui.composition_bar import CompositionBar
+from ui.select_clips_dialog import SelectClipsDialog
 from utils.theme_manager import ThemeManager
 from utils.command_stack import CommandStack, AddClipCommand, AddMarkerCommand
 from video.ffmpeg_processor import FFmpegProcessor, FFmpegWorker
 from utils.i18n_manager import i18n
+# Auth dialogs
+from ui.auth_dialogs import LoginDialog
 
 
 class MainWindow(QMainWindow):
@@ -39,7 +44,7 @@ class MainWindow(QMainWindow):
     Enhanced main application window with video editing features.
     """
 
-    def __init__(self, app):
+    def __init__(self, app, auth=None):
         super().__init__()
         self.app = app
         self.is_seeking = False
@@ -51,16 +56,27 @@ class MainWindow(QMainWindow):
         self.timeline = Timeline()
         self.marker_manager = MarkerManager()
         self.command_stack = CommandStack()
+        self.selected_clip_id = None
 
         # FFmpeg processor
         self.ffmpeg_processor = FFmpegProcessor()
         self.ffmpeg_worker = None
+        self.ffmpeg_workers = []  # keep multiple background workers alive
+
+        # Program preview state
+        self.program_mode = False
+        self.program_order = []  # list of clip ids in order
+        self.program_index = 0
+        self.program_current_clip_id = None
 
         # Theme manager
         self.theme_manager = ThemeManager(app)
 
         # Settings
         self.settings = QSettings("XJCO2811", "VideoEditor")
+
+        # Auth
+        self.auth = auth
 
         self.init_ui()
         self.load_sample_video()
@@ -79,6 +95,19 @@ class MainWindow(QMainWindow):
 
         # Menu bar
         self.create_menu_bar()
+
+        # Inspector dock (right)
+        self.inspector_dock = QDockWidget(i18n.t("inspector.title", "Inspector"), self)
+        self.inspector_dock.setFeatures(QDockWidget.DockWidgetMovable | QDockWidget.DockWidgetFloatable)
+        self.inspector = InspectorPanel(self)
+        self.inspector_dock.setWidget(self.inspector)
+        self.addDockWidget(Qt.RightDockWidgetArea, self.inspector_dock)
+
+        # Connect inspector signals
+        self.inspector.apply_inout.connect(self.on_inspector_apply_inout)
+        self.inspector.rename_clip.connect(self.on_inspector_rename_clip)
+        self.inspector.set_in_from_player.connect(self.on_inspector_set_in_from_player)
+        self.inspector.set_out_from_player.connect(self.on_inspector_set_out_from_player)
 
         # Main splitter (video player + timeline)
         splitter = QSplitter(Qt.Vertical)
@@ -111,6 +140,12 @@ class MainWindow(QMainWindow):
         self.timeline_slider.sliderMoved.connect(self.on_slider_moved)
         timeline_container_layout.addWidget(self.timeline_slider)
 
+        # Composition bar under slider
+        self.composition_bar = CompositionBar(self)
+        self.composition_bar.set_timeline(self.timeline)
+        self.composition_bar.seekRequested.connect(self.on_composition_seek)
+        timeline_container_layout.addWidget(self.composition_bar)
+
         top_layout.addWidget(timeline_container)
 
         # Time labels
@@ -141,13 +176,39 @@ class MainWindow(QMainWindow):
         self.timeline_widget = TimelineWidget(self.timeline, self.marker_manager)
         self.timeline_widget.setMinimumHeight(200)
         self.timeline_widget.clip_selected.connect(self.on_timeline_clip_selected)
+        self.timeline_widget.clip_activated.connect(self.on_timeline_clip_activated)
         self.timeline_widget.marker_clicked.connect(self.on_marker_clicked)
+        # Timeline context actions
+        self.timeline_widget.clip_rename_requested.connect(self.on_timeline_clip_rename_requested)
+        self.timeline_widget.clip_jump_to_in.connect(self.on_timeline_clip_jump_to_in)
+        self.timeline_widget.clip_jump_to_out.connect(self.on_timeline_clip_jump_to_out)
+        self.timeline_widget.clip_set_in_from_current.connect(self.on_timeline_clip_set_in_from_current)
+        self.timeline_widget.clip_set_out_from_current.connect(self.on_timeline_clip_set_out_from_current)
+        self.timeline_widget.clip_split_requested.connect(self.on_timeline_clip_split_requested)
         splitter.addWidget(self.timeline_widget)
 
         # Set splitter sizes (60% video, 40% timeline)
         splitter.setSizes([600, 400])
 
         main_layout.addWidget(splitter)
+
+        # Tool bar - explicit trim actions
+        toolbar = QToolBar(i18n.t("toolbar.edit_tools", "Edit Tools"), self)
+        self.addToolBar(Qt.TopToolBarArea, toolbar)
+        self.action_apply_io_to_clip = QAction(self.style().standardIcon(QStyle.SP_DialogApplyButton), i18n.t("action.apply_io", "Apply I/O to selected clip"), self)
+        self.action_apply_io_to_clip.setToolTip(i18n.t("tooltip.apply_io", "Apply global I/O to current selected clip"))
+        self.action_apply_io_to_clip.triggered.connect(self.apply_global_io_to_selected_clip)
+        toolbar.addAction(self.action_apply_io_to_clip)
+
+        self.action_add_io_as_clip = QAction(self.style().standardIcon(QStyle.SP_FileDialogNewFolder), i18n.t("action.add_io_as_clip", "Add I/O as new clip"), self)
+        self.action_add_io_as_clip.setToolTip(i18n.t("tooltip.add_io_as_clip", "Add current video I/O as a new clip"))
+        self.action_add_io_as_clip.triggered.connect(self.add_global_io_as_new_clip)
+        toolbar.addAction(self.action_add_io_as_clip)
+
+        self.action_extract_io_new_file = QAction(self.style().standardIcon(QStyle.SP_DialogSaveButton), i18n.t("action.extract_io_new_file", "Extract I/O to new file and add"), self)
+        self.action_extract_io_new_file.setToolTip("使用 FFmpeg 真裁剪：把当前视频 I/O 段导出为独立文件，并自动加入时间轴")
+        self.action_extract_io_new_file.triggered.connect(self.extract_global_io_to_new_file_and_add)
+        toolbar.addAction(self.action_extract_io_new_file)
 
         # Status bar
         self.statusBar().showMessage(i18n.t("status.ready", "Ready"))  # i18n
@@ -170,6 +231,11 @@ class MainWindow(QMainWindow):
         export_action.setShortcut("Ctrl+E")
         export_action.triggered.connect(self.export_video)
         file_menu.addAction(export_action)
+
+        export_selected_action = QAction(i18n.t("action.export_selected", "Export Selected Clips..."), self)
+        export_selected_action.setShortcut("Ctrl+Shift+E")
+        export_selected_action.triggered.connect(self.export_selected_clips)
+        file_menu.addAction(export_selected_action)
 
         file_menu.addSeparator()
 
@@ -258,6 +324,24 @@ class MainWindow(QMainWindow):
         next_marker_action.triggered.connect(self.goto_next_marker)
         markers_menu.addAction(next_marker_action)
 
+        # Playback menu (Program preview controls)
+        playback_menu = menubar.addMenu(i18n.t("menu.playback", "&Playback"))
+
+        self.program_toggle_action = QAction(i18n.t("action.program_start", "Start Program Preview"), self)
+        self.program_toggle_action.setShortcut("Ctrl+Shift+P")
+        self.program_toggle_action.triggered.connect(self.toggle_program_preview)
+        playback_menu.addAction(self.program_toggle_action)
+
+        self.program_prev_action = QAction(i18n.t("action.program_prev", "Previous Clip"), self)
+        self.program_prev_action.setShortcut("Ctrl+Shift+,")
+        self.program_prev_action.triggered.connect(self.program_prev_clip)
+        playback_menu.addAction(self.program_prev_action)
+
+        self.program_next_action = QAction(i18n.t("action.program_next", "Next Clip"), self)
+        self.program_next_action.setShortcut("Ctrl+Shift+.")
+        self.program_next_action.triggered.connect(self.program_next_clip)
+        playback_menu.addAction(self.program_next_action)
+
         # Help menu
         help_menu = menubar.addMenu(i18n.t("menu.help", "&Help"))
 
@@ -271,6 +355,18 @@ class MainWindow(QMainWindow):
         about_action = QAction(i18n.t("action.about", "&About"), self)
         about_action.triggered.connect(self.show_about)
         help_menu.addAction(about_action)
+
+        # Account menu
+        account_menu = menubar.addMenu(i18n.t("menu.account", "&Account"))
+        # Current user label (disabled)
+        current_user = self.auth.current_user.username if (hasattr(self, 'auth') and self.auth and self.auth.current_user) else "Guest"
+        self.account_user_action = QAction(i18n.t("account.signed_in_as", "Signed in as: {user}").replace("{user}", current_user), self)
+        self.account_user_action.setEnabled(False)
+        account_menu.addAction(self.account_user_action)
+
+        switch_action = QAction(i18n.t("account.switch_user", "&Switch User / Logout..."), self)
+        switch_action.triggered.connect(self.switch_user)
+        account_menu.addAction(switch_action)
 
     def create_control_panel(self):
         """Create playback controls."""
@@ -378,7 +474,7 @@ class MainWindow(QMainWindow):
             self.stop_button.setEnabled(True)
             self.rewind_button.setEnabled(True)
             self.forward_button.setEnabled(True)
-            self.statusBar().showMessage(f"Loaded: {os.path.basename(file_path)}")
+            self.statusBar().showMessage(i18n.t("status.loaded", "Loaded: {name}").replace("{name}", os.path.basename(file_path)))
 
     def play_pause(self):
         state = self.video_player.get_state()
@@ -443,6 +539,15 @@ class MainWindow(QMainWindow):
         if not self.is_seeking:
             self.timeline_slider.setValue(position_ms)
         self.current_time_label.setText(self.format_time(position_ms))
+        # Sync composition bar playhead
+        if hasattr(self, 'composition_bar') and self.composition_bar:
+            self.composition_bar.set_position(position_ms)
+        # Program preview: if current clip has an Out point, auto-advance when reaching it
+        if self.program_mode and self.program_current_clip_id:
+            clip = self.timeline.get_clip(self.program_current_clip_id)
+            if clip and position_ms >= clip.end_time_ms - 1:
+                self.program_next_clip()
+                return
 
     def on_duration_changed(self, duration_ms):
         self.timeline_slider.setRange(0, duration_ms)
@@ -453,6 +558,9 @@ class MainWindow(QMainWindow):
             self.play_button.setIcon(self.style().standardIcon(QStyle.SP_MediaPause))
         else:
             self.play_button.setIcon(self.style().standardIcon(QStyle.SP_MediaPlay))
+        # Program preview: auto-advance when a clip finishes
+        if self.program_mode and state == OpenCVVideoPlayer.STATE_STOPPED:
+            self.program_next_clip()
 
     @staticmethod
     def format_time(milliseconds):
@@ -480,11 +588,41 @@ class MainWindow(QMainWindow):
         self.in_point_ms = self.video_player.get_position()
         self.in_point_label.setText(f"In: {self.format_time(self.in_point_ms)}")
         self.statusBar().showMessage(i18n.t("status.in_set", "In point set at {time}").replace("{time}", self.format_time(self.in_point_ms)))
+        # UX: if a clip is selected and we're previewing its source, reflect to Inspector field automatically
+        if self.selected_clip_id is not None:
+            clip = self.timeline.get_clip(self.selected_clip_id)
+            if clip and self.video_player.video_path and os.path.abspath(clip.source_path) == os.path.abspath(self.video_player.video_path):
+                self.inspector.set_in_from_ms(self.in_point_ms)
+                # Auto-apply if Out exists and valid
+                if self.out_point_ms is not None and self.out_point_ms > self.in_point_ms:
+                    self.timeline.update_clip_in_out(clip.id, self.in_point_ms, self.out_point_ms)
+                    # refresh inspector to show applied values
+                    self.inspector.set_clip(clip.id, clip.label or os.path.basename(clip.source_path), clip.start_time_ms, clip.end_time_ms)
+                    self.statusBar().showMessage(f"Applied to clip: {self.format_time(clip.start_time_ms)} - {self.format_time(clip.end_time_ms)}")
 
     def set_out_point(self):
         self.out_point_ms = self.video_player.get_position()
         self.out_point_label.setText(f"Out: {self.format_time(self.out_point_ms)}")
         self.statusBar().showMessage(i18n.t("status.out_set", "Out point set at {time}").replace("{time}", self.format_time(self.out_point_ms)))
+        # UX: reflect to Inspector if a matching clip/source is in context
+        if self.selected_clip_id is not None:
+            clip = self.timeline.get_clip(self.selected_clip_id)
+            if clip and self.video_player.video_path and os.path.abspath(clip.source_path) == os.path.abspath(self.video_player.video_path):
+                self.inspector.set_out_from_ms(self.out_point_ms)
+        else:
+            # If no clip selected, try to bind Inspector to the first clip with same source
+            if self.video_player.video_path:
+                try:
+                    from pathlib import Path
+                    cur = os.path.abspath(self.video_player.video_path)
+                    for c in self.timeline.clips:
+                        if os.path.abspath(c.source_path) == cur:
+                            self.selected_clip_id = c.id
+                            self.inspector.set_clip(c.id, c.label or os.path.basename(c.source_path), c.start_time_ms, c.end_time_ms)
+                            self.inspector.set_out_from_ms(self.out_point_ms)
+                            break
+                except Exception:
+                    pass
 
     def clear_trim_points(self):
         self.in_point_ms = None
@@ -523,31 +661,361 @@ class MainWindow(QMainWindow):
         if marker:
             self.video_player.seek(marker.time_ms)
 
+    # Timeline context handlers
+    def on_timeline_clip_rename_requested(self, clip_id: int):
+        clip = self.timeline.get_clip(clip_id)
+        if not clip:
+            return
+        text, ok = QInputDialog.getText(self, i18n.t("dialog.rename_title", "Rename Clip"), i18n.t("dialog.rename_prompt", "New name:"), text=clip.label or os.path.basename(clip.source_path))
+        if ok:
+            if self.timeline.update_clip_label(clip_id, text.strip()):
+                c = self.timeline.get_clip(clip_id)
+                if c:
+                    self.inspector.set_clip(c.id, c.label or os.path.basename(c.source_path), c.start_time_ms, c.end_time_ms)
+                    self.statusBar().showMessage(f"Renamed clip to: {c.label or os.path.basename(c.source_path)}")
+
+    def _ensure_clip_loaded_for_preview(self, clip: 'TimelineClip') -> bool:
+        """Load clip's source if different, set selected and inspector."""
+        self.selected_clip_id = clip.id
+        if self.video_player.video_path and os.path.abspath(self.video_player.video_path) == os.path.abspath(clip.source_path):
+            self.inspector.set_clip(clip.id, clip.label or os.path.basename(clip.source_path), clip.start_time_ms, clip.end_time_ms)
+            return True
+        if self.video_player.load_video(clip.source_path):
+            self.timeline_slider.setRange(0, self.video_player.get_duration())
+            self.inspector.set_clip(clip.id, clip.label or os.path.basename(clip.source_path), clip.start_time_ms, clip.end_time_ms)
+            return True
+        return False
+
+    def on_timeline_clip_jump_to_in(self, clip_id: int):
+        clip = self.timeline.get_clip(clip_id)
+        if not clip:
+            return
+        if self._ensure_clip_loaded_for_preview(clip):
+            self.video_player.seek(clip.start_time_ms)
+            self.video_player.play()
+            self.statusBar().showMessage(i18n.t("status.jump_in","Jumped to In: {time}").replace("{time}", self.format_time(clip.start_time_ms)))
+
+    def on_timeline_clip_jump_to_out(self, clip_id: int):
+        clip = self.timeline.get_clip(clip_id)
+        if not clip:
+            return
+        if self._ensure_clip_loaded_for_preview(clip):
+            pos = max(0, clip.end_time_ms - 1)
+            self.video_player.seek(pos)
+            self.video_player.play()
+            self.statusBar().showMessage(f"Jumped to Out: {self.format_time(clip.end_time_ms)}")
+
+    def on_timeline_clip_set_in_from_current(self, clip_id: int):
+        clip = self.timeline.get_clip(clip_id)
+        if not clip:
+            return
+        cur = self.video_player.get_position()
+        new_start = cur
+        new_end = max(new_start + 10, clip.end_time_ms)  # ensure at least 10ms
+        if self.timeline.update_clip_in_out(clip_id, new_start, new_end):
+            c = self.timeline.get_clip(clip_id)
+            if c:
+                self.inspector.set_clip(c.id, c.label or os.path.basename(c.source_path), c.start_time_ms, c.end_time_ms)
+                self.statusBar().showMessage(f"Set In: {self.format_time(c.start_time_ms)}")
+
+    def on_timeline_clip_set_out_from_current(self, clip_id: int):
+        clip = self.timeline.get_clip(clip_id)
+        if not clip:
+            return
+        cur = self.video_player.get_position()
+        new_end = cur
+        new_start = min(clip.start_time_ms, new_end - 10) if new_end - 10 > 0 else 0
+        if new_end <= new_start:
+            new_end = new_start + 10
+        if self.timeline.update_clip_in_out(clip_id, new_start, new_end):
+            c = self.timeline.get_clip(clip_id)
+            if c:
+                self.inspector.set_clip(c.id, c.label or os.path.basename(c.source_path), c.start_time_ms, c.end_time_ms)
+                self.statusBar().showMessage(f"Set Out: {self.format_time(c.end_time_ms)}")
+
+    def on_timeline_clip_split_requested(self, clip_id: int):
+        """Split selected clip at current player position (source time)."""
+        clip = self.timeline.get_clip(clip_id)
+        if not clip:
+            return
+        # Ensure correct source loaded
+        if not self._ensure_clip_loaded_for_preview(clip):
+            return
+        split_ms = self.video_player.get_position()
+        # Clamp split inside (start, end)
+        if split_ms <= clip.start_time_ms:
+            split_ms = clip.start_time_ms + 10
+        if split_ms >= clip.end_time_ms:
+            split_ms = clip.end_time_ms - 10
+        if split_ms <= clip.start_time_ms or split_ms >= clip.end_time_ms:
+            self.statusBar().showMessage("Cannot split: position out of range")
+            return
+        new_clip = self.timeline.split_clip(clip_id, split_ms)
+        if new_clip:
+            # Focus the right part after split
+            self.selected_clip_id = new_clip.id
+            self.inspector.set_clip(new_clip.id, new_clip.label or os.path.basename(new_clip.source_path), new_clip.start_time_ms, new_clip.end_time_ms)
+            self.statusBar().showMessage(f"Split at {self.format_time(split_ms)} -> new clip #{new_clip.id}")
+
+    # Program preview controls
+    def toggle_program_preview(self):
+        if not self.program_mode:
+            # start program preview
+            order = [c.id for c in self.timeline.get_sorted_clips()]
+            if not order:
+                self.statusBar().showMessage(i18n.t("status.program_no_clips", "No clips for program preview"))
+                return
+            self.program_order = order
+            # start from selected clip if present else index 0
+            if self.selected_clip_id in order:
+                self.program_index = order.index(self.selected_clip_id)
+            else:
+                self.program_index = 0
+            self.program_mode = True
+            self.program_toggle_action.setText(i18n.t("action.program_stop", "Stop Program Preview"))
+            self._program_play_clip_by_index(self.program_index)
+        else:
+            self.program_mode = False
+            self.program_current_clip_id = None
+            self.program_toggle_action.setText(i18n.t("action.program_start", "Start Program Preview"))
+            self.statusBar().showMessage(i18n.t("status.program_stopped", "Program preview stopped"))
+
+    def _program_play_clip_by_index(self, idx: int):
+        if idx < 0 or idx >= len(self.program_order):
+            self.toggle_program_preview()
+            return
+        clip_id = self.program_order[idx]
+        clip = self.timeline.get_clip(clip_id)
+        if not clip:
+            self.program_next_clip()
+            return
+        self.program_current_clip_id = clip_id
+        self.on_timeline_clip_activated(clip_id)
+
+    def program_next_clip(self):
+        if not self.program_mode:
+            return
+        self.program_index += 1
+        if self.program_index >= len(self.program_order):
+            # end
+            self.toggle_program_preview()
+            return
+        self._program_play_clip_by_index(self.program_index)
+
+    def program_prev_clip(self):
+        if not self.program_mode:
+            return
+        self.program_index -= 1
+        if self.program_index < 0:
+            self.program_index = 0
+        self._program_play_clip_by_index(self.program_index)
+
+    # Composition bar handlers
+    def on_composition_seek(self, pos_ms: int):
+        """Seek via composition bar: map timeline time to source clip and seek accordingly."""
+        clip = self.timeline.get_clip_at_position(pos_ms)
+        if not clip:
+            # If no clip at this time, just seek by position in current video if any
+            if self.video_player.capture is not None:
+                self.video_player.seek(pos_ms)
+            return
+        # Compute source time = clip.start + (globalPos - clip.position)
+        src_time = clip.start_time_ms + max(0, pos_ms - clip.position_ms)
+        # Load source if different
+        need_load = (not self.video_player.video_path) or (os.path.abspath(self.video_player.video_path) != os.path.abspath(clip.source_path))
+        prior_state = self.video_player.get_state()
+        if need_load:
+            if not self.video_player.load_video(clip.source_path):
+                return
+            self.timeline_slider.setRange(0, self.video_player.get_duration())
+        # Seek
+        self.video_player.seek(src_time)
+        # Keep paused unless原本在播放
+        if prior_state == OpenCVVideoPlayer.STATE_PLAYING:
+            self.video_player.play()
+        # Sync selection and inspector
+        self.selected_clip_id = clip.id
+        self.inspector.set_clip(clip.id, clip.label or os.path.basename(clip.source_path), clip.start_time_ms, clip.end_time_ms)
+        if hasattr(self, 'composition_bar') and self.composition_bar:
+            self.composition_bar.set_selected_clip(clip.id)
+        self.statusBar().showMessage(f"Seek to {self.format_time(src_time)} in clip #{clip.id}")
+
+    # Toolbar actions
+    def apply_global_io_to_selected_clip(self):
+        """Apply global I/O (set via I/O keys) to the currently selected clip."""
+        if self.selected_clip_id is None:
+            self.statusBar().showMessage("No clip selected")
+            return
+        clip = self.timeline.get_clip(self.selected_clip_id)
+        if not clip:
+            self.statusBar().showMessage("No clip selected")
+            return
+        # Ensure preview source matches; if not, load it
+        if not self.video_player.video_path or os.path.abspath(self.video_player.video_path) != os.path.abspath(clip.source_path):
+            if not self.video_player.load_video(clip.source_path):
+                self.statusBar().showMessage("Failed to load clip source for applying I/O")
+                return
+            self.timeline_slider.setRange(0, self.video_player.get_duration())
+        in_ms = self.in_point_ms if self.in_point_ms is not None else clip.start_time_ms
+        out_ms = self.out_point_ms if self.out_point_ms is not None else clip.end_time_ms
+        if out_ms <= in_ms:
+            out_ms = in_ms + 10
+        if self.timeline.update_clip_in_out(clip.id, in_ms, out_ms):
+            c = self.timeline.get_clip(clip.id)
+            if c:
+                self.inspector.set_clip(c.id, c.label or os.path.basename(c.source_path), c.start_time_ms, c.end_time_ms)
+                self.statusBar().showMessage(f"Applied global I/O to clip: {self.format_time(c.start_time_ms)} - {self.format_time(c.end_time_ms)}")
+
+    def add_global_io_as_new_clip(self):
+        """Add current video (global I/O range) as a new clip to timeline (referencing source file)."""
+        if not self.video_player.video_path:
+            self.statusBar().showMessage("No video loaded")
+            return
+        total = self.video_player.get_duration()
+        in_ms = self.in_point_ms if self.in_point_ms is not None else 0
+        out_ms = self.out_point_ms if self.out_point_ms is not None else total
+        if out_ms <= in_ms:
+            out_ms = in_ms + 10
+        duration = out_ms - in_ms
+        new_clip = self.timeline.add_clip(
+            source_path=self.video_player.video_path,
+            start_time_ms=in_ms,
+            duration_ms=duration
+        )
+        self.selected_clip_id = new_clip.id
+        self.inspector.set_clip(new_clip.id, new_clip.label or os.path.basename(new_clip.source_path), new_clip.start_time_ms, new_clip.end_time_ms)
+        self.statusBar().showMessage(f"Added new clip from I/O: {self.format_time(in_ms)} - {self.format_time(out_ms)}")
+
+    def extract_global_io_to_new_file_and_add(self):
+        """Physically trim global I/O to a new file via FFmpeg and add to timeline."""
+        if not self.video_player.video_path:
+            QMessageBox.information(self, "No Video", "No video loaded.")
+            return
+        # Check FFmpeg
+        if not FFmpegProcessor.check_ffmpeg_available():
+            QMessageBox.warning(self, "FFmpeg Not Found", "FFmpeg is required to physically trim to a new file.")
+            return
+        total = self.video_player.get_duration()
+        in_ms = self.in_point_ms if self.in_point_ms is not None else 0
+        out_ms = self.out_point_ms if self.out_point_ms is not None else total
+        if out_ms <= in_ms:
+            out_ms = in_ms + 10
+        duration = out_ms - in_ms
+        # Suggest default path in videos/exports
+        try:
+            base_dir = os.path.abspath(os.path.join(os.path.dirname(os.path.dirname(__file__)), "..", "videos", "exports"))
+        except Exception:
+            base_dir = os.path.abspath(os.path.join(os.getcwd(), "videos", "exports"))
+        os.makedirs(base_dir, exist_ok=True)
+        from datetime import datetime
+        ts = datetime.now().strftime("%Y%m%d_%H%M%S")
+        default_name = f"trim_{ts}.mp4"
+        default_path = os.path.join(base_dir, default_name)
+        save_path, _ = QFileDialog.getSaveFileName(self, "Save Trimmed Clip As", default_path, "MP4 Video (*.mp4)")
+        if not save_path:
+            return
+        if not save_path.lower().endswith('.mp4'):
+            save_path += '.mp4'
+
+        # Prepare processor and background thread
+        processor = FFmpegProcessor()
+        from PyQt5.QtCore import QThread
+        worker = QThread()
+        processor.moveToThread(worker)
+
+        def on_completed(success: bool, msg: str):
+            # Back to GUI thread context by Qt signals queue (already queued)
+            if success and os.path.exists(save_path):
+                # Add the new file as a fresh clip (0..duration)
+                new_clip = self.timeline.add_clip(
+                    source_path=save_path,
+                    start_time_ms=0,
+                    duration_ms=duration
+                )
+                self.selected_clip_id = new_clip.id
+                self.inspector.set_clip(new_clip.id, new_clip.label or os.path.basename(new_clip.source_path), new_clip.start_time_ms, new_clip.end_time_ms)
+                QMessageBox.information(self, "Trim Completed", f"New clip saved to:\n{save_path}")
+                self.statusBar().showMessage("Trimmed new file added to timeline")
+            else:
+                QMessageBox.critical(self, "Trim Failed", f"{msg}")
+            # Cleanup thread
+            try:
+                worker.quit()
+                worker.wait(100)
+                self.ffmpeg_workers.remove(worker)
+            except Exception:
+                pass
+
+        processor.process_completed.connect(on_completed)
+        # Progress feedback to status bar
+        processor.progress_updated.connect(lambda p: self.statusBar().showMessage(f"Trimming... {p}%"))
+
+        worker.started.connect(lambda: processor.trim_video(self.video_player.video_path, save_path, in_ms, out_ms, FFmpegProcessor.QUALITY_HIGH))
+        worker.start()
+        self.ffmpeg_workers.append(worker)
+        self.statusBar().showMessage("Trimming...")
+
     def on_timeline_clip_selected(self, clip_id):
+        """Select a clip and show in inspector (do not change playback)."""
         clip = self.timeline.get_clip(clip_id)
         if clip:
-            self.statusBar().showMessage(f"Selected clip: {os.path.basename(clip.source_path)}")
+            self.selected_clip_id = clip_id
+            self.inspector.set_clip(clip.id, clip.label or os.path.basename(clip.source_path), clip.start_time_ms, clip.end_time_ms)
+            self.statusBar().showMessage(i18n.t("status.selected_clip","Selected clip: {name}").replace("{name}", os.path.basename(clip.source_path)))
+
+    def on_timeline_clip_activated(self, clip_id):
+        """Double-click: load clip's source and preview from its In point."""
+        clip = self.timeline.get_clip(clip_id)
+        if not clip:
+            return
+        self.selected_clip_id = clip_id
+        # Load source and seek to In point
+        if self.video_player.load_video(clip.source_path):
+            self.timeline_slider.setRange(0, self.video_player.get_duration())
+            self.video_player.seek(clip.start_time_ms)
+            self.video_player.play()
+            self.inspector.set_clip(clip.id, clip.label or os.path.basename(clip.source_path), clip.start_time_ms, clip.end_time_ms)
+            self.statusBar().showMessage(f"Preview clip from {self.format_time(clip.start_time_ms)}")
+
+    # Inspector handlers
+    def on_inspector_apply_inout(self, clip_id: int, start_ms: int, end_ms: int):
+        """Apply edited In/Out to timeline clip and refresh UI."""
+        if not self.timeline.update_clip_in_out(clip_id, start_ms, end_ms):
+            return
+        clip = self.timeline.get_clip(clip_id)
+        if clip:
+            # If currently previewing this clip, seek to new In point
+            if self.selected_clip_id == clip_id and self.video_player.video_path == clip.source_path:
+                self.video_player.seek(clip.start_time_ms)
+            # Reflect into inspector and status bar
+            self.inspector.set_clip(clip.id, clip.label or os.path.basename(clip.source_path), clip.start_time_ms, clip.end_time_ms)
+            self.statusBar().showMessage(f"Updated clip In/Out: {self.format_time(clip.start_time_ms)} - {self.format_time(clip.end_time_ms)}")
+
+    def on_inspector_rename_clip(self, clip_id: int, new_label: str):
+        if self.timeline.update_clip_label(clip_id, new_label):
+            clip = self.timeline.get_clip(clip_id)
+            if clip:
+                self.inspector.set_clip(clip.id, clip.label or os.path.basename(clip.source_path), clip.start_time_ms, clip.end_time_ms)
+                self.statusBar().showMessage(f"Renamed clip to: {clip.label or os.path.basename(clip.source_path)}")
+
+    def on_inspector_set_in_from_player(self):
+        pos = self.video_player.get_position()
+        self.inspector.set_in_from_ms(pos)
+
+    def on_inspector_set_out_from_player(self):
+        pos = self.video_player.get_position()
+        self.inspector.set_out_from_ms(pos)
 
     def export_video(self):
-        # Check if FFmpeg is available
-        if not FFmpegProcessor.check_ffmpeg_available():
-            QMessageBox.warning(
-                self,
-                i18n.t("dialog.ffmpeg_missing_title", "FFmpeg Not Found"),
-                i18n.t("dialog.ffmpeg_missing_msg", "FFmpeg is required for video export but was not found on your system."),
-                QMessageBox.Ok | QMessageBox.Cancel
-            )
-            return
-
-        # Check if we have video loaded or clips in timeline
+        # Determine exportability first
         has_video = self.video_player.capture is not None
         has_clips = self.timeline.get_clip_count() > 0
 
         if not has_video and not has_clips:
             QMessageBox.information(
                 self,
-                "No Video to Export",
-                "Please load a video or add clips to the timeline before exporting."
+                i18n.t("dialog.no_video_to_export_title", "No Video to Export"),
+                i18n.t("dialog.no_video_to_export_msg", "Please load a video or add clips to the timeline before exporting.")
             )
             return
 
@@ -556,7 +1024,52 @@ class MainWindow(QMainWindow):
 
         if dialog.exec_() == ExportDialog.Accepted:
             settings = dialog.get_export_settings()
+            # If export mode requires FFmpeg, check availability here
+            requires_ffmpeg = False
+            if has_clips:
+                requires_ffmpeg = True
+            else:
+                # Single video export: trimming requires FFmpeg; full copy does not
+                if self.in_point_ms is not None or self.out_point_ms is not None:
+                    requires_ffmpeg = True
+            if requires_ffmpeg and not FFmpegProcessor.check_ffmpeg_available():
+                QMessageBox.warning(
+                    self,
+                    i18n.t("dialog.ffmpeg_missing_title", "FFmpeg Not Found"),
+                    i18n.t("dialog.ffmpeg_missing_msg", "FFmpeg is required for video export but was not found on your system."),
+                    QMessageBox.Ok
+                )
+                return
             self.perform_export(settings, dialog)
+
+    def export_selected_clips(self):
+        # Build selection list from current timeline
+        clips = self.timeline.get_sorted_clips()
+        if not clips:
+            QMessageBox.information(self, "No Clips", "There are no clips on the timeline.")
+            return
+        # Open selection dialog
+        dlg = SelectClipsDialog(clips, self)
+        if dlg.exec_() != QDialog.Accepted:
+            return
+        selected = dlg.get_selection()
+        if not selected:
+            QMessageBox.information(self, "No Selection", "Please select at least one clip.")
+            return
+        # Open export dialog for quality/transitions
+        dialog = ExportDialog(self)
+        dialog.export_started.connect(self.on_export_started)
+        if dialog.exec_() != QDialog.Accepted:
+            return
+        settings = dialog.get_export_settings()
+        # Selection export requires FFmpeg (concat)
+        if not FFmpegProcessor.check_ffmpeg_available():
+            QMessageBox.warning(self, "FFmpeg Not Found", "FFmpeg is required to export selected clips.")
+            return
+        # Determine output path etc.
+        output_path = settings["output_path"]
+        quality = settings["quality"]
+        self.export_selected_timeline(selected, output_path, quality, dialog, settings)
 
     def on_export_started(self):
         self.statusBar().showMessage(i18n.t("status.export_start", "Starting export..."))
@@ -569,7 +1082,7 @@ class MainWindow(QMainWindow):
         # Determine export mode
         if self.timeline.get_clip_count() > 0:
             # Export timeline (multiple clips)
-            self.export_timeline(output_path, quality, dialog)
+            self.export_timeline(output_path, quality, dialog, settings)
         elif self.in_point_ms is not None or self.out_point_ms is not None:
             # Export trimmed single video
             self.export_trimmed_video(output_path, quality, dialog)
@@ -632,9 +1145,45 @@ class MainWindow(QMainWindow):
 
         self.ffmpeg_worker = worker  # Keep reference
 
-    def export_timeline(self, output_path, quality, dialog):
+    def export_selected_timeline(self, selected_clips, output_path, quality, dialog, settings=None):
+        """Export only the selected clips in the provided order."""
+        if not selected_clips:
+            dialog.on_export_completed(False, "No clips selected")
+            return
+
+        dialog.set_status(f"Exporting {len(selected_clips)} selected clips...")
+
+        clip_data = [
+            (clip.source_path, clip.start_time_ms, clip.end_time_ms)
+            for clip in selected_clips
+        ]
+
+        transitions_enabled = bool(settings.get("transitions_enabled", False)) if settings else False
+        transition_ms = int(settings.get("transition_ms", 500)) if settings else 500
+
+        from PyQt5.QtCore import QThread
+        processor = FFmpegProcessor()
+        processor.progress_updated.connect(dialog.set_progress)
+        processor.process_completed.connect(lambda success, msg: dialog.on_export_completed(success, msg))
+
+        worker = QThread()
+        processor.moveToThread(worker)
+        worker.started.connect(
+            lambda: processor.concatenate_clips(
+                clip_data,
+                output_path,
+                quality,
+                transitions_enabled=transitions_enabled,
+                transition_ms=transition_ms
+            )
+        )
+        worker.start()
+        self.ffmpeg_worker = worker
+
+    def export_timeline(self, output_path, quality, dialog, settings=None):
         """Export timeline with multiple clips."""
-        clips = self.timeline.get_clips_in_range(0, self.timeline.get_total_duration())
+        # Use sorted clips to preserve visual order
+        clips = self.timeline.get_sorted_clips()
 
         if not clips:
             dialog.on_export_completed(False, "No clips in timeline")
@@ -647,6 +1196,9 @@ class MainWindow(QMainWindow):
             (clip.source_path, clip.start_time_ms, clip.end_time_ms)
             for clip in clips
         ]
+
+        transitions_enabled = bool(settings.get("transitions_enabled", False)) if settings else False
+        transition_ms = int(settings.get("transition_ms", 500)) if settings else 500
 
         # Create FFmpeg worker
         from PyQt5.QtCore import QThread
@@ -661,7 +1213,13 @@ class MainWindow(QMainWindow):
         worker = QThread()
         processor.moveToThread(worker)
         worker.started.connect(
-            lambda: processor.concatenate_clips(clip_data, output_path, quality)
+            lambda: processor.concatenate_clips(
+                clip_data,
+                output_path,
+                quality,
+                transitions_enabled=transitions_enabled,
+                transition_ms=transition_ms
+            )
         )
         worker.start()
 
@@ -762,6 +1320,41 @@ class MainWindow(QMainWindow):
         """
 
         QMessageBox.about(self, "About Video Editor/Player", about_text)
+
+    def update_account_user_menu(self):
+        """Refresh Account menu label to show current user."""
+        try:
+            if hasattr(self, 'account_user_action'):
+                current_user = self.auth.current_user.username if (self.auth and self.auth.current_user) else "Guest"
+                self.account_user_action.setText(i18n.t("account.signed_in_as", f"Signed in as: {current_user}"))
+        except Exception:
+            pass
+
+    def switch_user(self):
+        """Logout and prompt login again. If cancelled, quit app to enforce auth gate."""
+        reply = QMessageBox.question(
+            self,
+            i18n.t("account.switch_user_title", "Switch User"),
+            i18n.t("account.switch_user_msg", "Logout current user and switch?"),
+            QMessageBox.Yes | QMessageBox.No
+        )
+        if reply != QMessageBox.Yes:
+            return
+        # Logout current
+        try:
+            if self.auth:
+                self.auth.logout()
+        except Exception:
+            pass
+        # Show login dialog
+        login = LoginDialog(self.auth, self)
+        result = login.exec_()
+        if result == QDialog.Accepted and self.auth and self.auth.current_user:
+            self.update_account_user_menu()
+            self.statusBar().showMessage(i18n.t("account.signed_in_as", f"Signed in as: {self.auth.current_user.username}"))
+        else:
+            QMessageBox.information(self, i18n.t("account.not_signed_in", "Not signed in"), i18n.t("account.exit_msg", "No user signed in. The app will close."))
+            self.close()
 
     def change_language(self, lang: str):
         """Change UI language and prompt restart for full effect."""

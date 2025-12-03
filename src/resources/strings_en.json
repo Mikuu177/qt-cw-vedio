@@ -1,7 +1,5 @@
 {
-  "window": {
-    "title": "Video Editor/Player - XJCO2811 (Iteration 2)"
-  },
+  "window": {"title": "Video Editor/Player - XJCO2811 (Iteration 2)"},
   "status": {
     "ready": "Ready",
     "speed": "Playback speed: {speed}",
@@ -17,19 +15,32 @@
     "marker_added": "Marker added at {time}",
     "marker_prev": "Jumped to marker: {label}",
     "marker_next": "Jumped to marker: {label}",
-    "export_start": "Starting export..."
+    "export_start": "Starting export...",
+    "program_stopped": "Program preview stopped",
+    "program_no_clips": "No clips for program preview",
+    "selected_clip": "Selected clip: {name}",
+    "preview_from": "Preview clip from {time}",
+    "jump_in": "Jumped to In: {time}",
+    "jump_out": "Jumped to Out: {time}",
+    "applied_global_io": "Applied global I/O to clip: {in} - {out}",
+    "added_io_as_clip": "Added new clip from I/O: {in} - {out}",
+    "failed_load_source": "Failed to load clip source for applying I/O",
+    "trimming": "Trimming... {pct}%",
+    "loaded": "Loaded: {name}",
+    "cannot_split": "Cannot split: position out of range",
+    "split_at": "Split at {time} -> new clip #{id}",
+    "seek_to": "Seek to {time} in clip #{id}",
+    "updated_inout": "Updated clip In/Out: {in} - {out}",
+    "renamed_clip": "Renamed clip to: {name}"
   },
-  "menu": {
-    "file": "&File",
-    "edit": "&Edit",
-    "view": "&View",
-    "markers": "&Markers",
-    "help": "&Help",
-    "language": "&Language"
-  },
+  "menu": {"file": "&File", "edit": "&Edit", "view": "&View", "markers": "&Markers", "help": "&Help", "language": "&Language", "account": "&Account", "playback": "&Playback"},
+  "account": {"signed_in_as": "Signed in as: {user}", "switch_user": "&Switch User / Logout...", "switch_user_title": "Switch User", "switch_user_msg": "Logout current user and switch?", "not_signed_in": "Not signed in", "exit_msg": "No user signed in. The app will close."},
+  "inspector": {"title": "Inspector", "group_basic": "Basic", "group_io": "In/Out", "name": "Name:", "rename": "Rename", "in_label": "In (mm:ss.mmm):", "out_label": "Out (mm:ss.mmm):", "set_from_current": "Set from Current", "apply": "Apply to Clip"},
+  "toolbar": {"edit_tools": "Edit Tools"},
   "action": {
     "open": "&Open Video...",
     "export": "&Export Video...",
+    "export_selected": "Export Selected Clips...",
     "exit": "E&xit",
     "undo": "&Undo",
     "redo": "&Redo",
@@ -45,87 +56,54 @@
     "shortcuts": "&Keyboard Shortcuts",
     "about": "&About",
     "lang_en": "English",
-    "lang_zh": "中文"
+    "lang_zh": "中文",
+    "apply_io": "Apply I/O to selected clip",
+    "add_io_as_clip": "Add I/O as new clip",
+    "extract_io_new_file": "Extract I/O to new file and add",
+    "program_start": "Start Program Preview",
+    "program_stop": "Stop Program Preview",
+    "program_prev": "Previous Clip",
+    "program_next": "Next Clip"
   },
-  "label": {
-    "speed": "Speed:",
-    "volume": "Volume:",
-    "current_time": "00:00",
-    "total_time": "00:00"
-  },
-  "tooltip": {
-    "rewind": "Rewind 10s",
-    "play": "Play (Space)",
-    "stop": "Stop",
-    "forward": "Forward 10s",
-    "mute": "Mute (M)",
-    "fullscreen": "Fullscreen (F)"
-  },
-  "timeline": {
-    "title": "Timeline",
-    "add": "+ Add Clip",
-    "add_tip": "Add video clip to timeline",
-    "clear": "Clear Timeline",
-    "clear_tip": "Remove all clips",
-    "dialog_add_title": "Add Video Clip",
-    "filter": "Video Files (*.mp4 *.avi *.mkv *.mov *.wmv);;All Files (*.*)",
-    "no_clips": "No clips",
-    "info": "{count} clip(s) | Total duration: {secs}s",
-    "confirm_clear_title": "Clear Timeline",
-    "confirm_clear_msg": "Remove all clips from timeline?",
-    "context_delete": "Delete Clip"
-  },
+  "label": {"speed": "Speed:", "volume": "Volume:", "current_time": "00:00", "total_time": "00:00", "in": "In:", "out": "Out:"},
+  "tooltip": {"rewind": "Rewind 10s", "play": "Play (Space)", "stop": "Stop", "forward": "Forward 10s", "mute": "Mute (M)", "fullscreen": "Fullscreen (F)", "apply_io": "Apply global I/O to current selected clip", "add_io_as_clip": "Add current video I/O as a new clip", "extract_io_new_file": "Trim I/O to a new physical file via FFmpeg and add"},
+  "timeline": {"title": "Timeline", "add": "+ Add Clip", "add_tip": "Add video clip to timeline", "clear": "Clear Timeline", "clear_tip": "Remove all clips", "dialog_add_title": "Add Video Clip", "filter": "Video Files (*.mp4 *.avi *.mkv *.mov *.wmv);;All Files (*.*)", "no_clips": "No clips", "info": "{count} clip(s) | Total duration: {secs}s", "confirm_clear_title": "Clear Timeline", "confirm_clear_msg": "Remove all clips from timeline?", "context_delete": "Delete Clip", "context_rename": "Rename", "context_jump_in": "Jump to In", "context_jump_out": "Jump to Out", "context_set_in_from_current": "Set In from Current", "context_set_out_from_current": "Set Out from Current", "context_split": "Split at Current"},
   "export": {
     "title": "Export Video",
-    "output": {
-      "group": "Output File",
-      "placeholder": "Select output file path...",
-      "browse": "Browse..."
-    },
-    "quality": {
-      "group": "Quality Settings",
-      "label": "Quality Preset:",
-      "opt_high": "High (1080p, CRF 18)",
-      "opt_medium": "Medium (720p, CRF 23)",
-      "opt_low": "Low (480p, CRF 28)",
-      "info_high": "Best quality | Larger file size | H.264, 1080p, CRF 18, 192k audio",
-      "info_medium": "Balanced quality | Moderate file size | H.264, 720p, CRF 23, 128k audio",
-      "info_low": "Smaller file size | Lower quality | H.264, 480p, CRF 28, 96k audio"
-    },
-    "btn": {
-      "export": "Export",
-      "cancel": "Cancel"
-    },
-    "save": {
-      "title": "Save Video As"
-    },
-    "warn": {
-      "no_output": {"title": "No Output File", "msg": "Please select an output file path."},
-      "exists": {"title": "File Exists", "msg": "The file '{name}' already exists.\nOverwrite?"}
-    },
+    "output": {"group": "Output File", "placeholder": "Select output file path...", "browse": "Browse..."},
+    "quality": {"group": "Quality Settings", "label": "Quality Preset:", "opt_high": "High (1080p, CRF 18)", "opt_medium": "Medium (720p, CRF 23)", "opt_low": "Low (480p, CRF 28)", "info_high": "Best quality | Larger file size | H.264, 1080p, CRF 18, 192k audio", "info_medium": "Balanced quality | Moderate file size | H.264, 720p, CRF 23, 128k audio", "info_low": "Smaller file size | Lower quality | H.264, 480p, CRF 28, 96k audio"},
+    "transitions": {"group": "Transitions", "enable": "Enable crossfade between clips", "duration_label": "Duration (ms):"},
+    "btn": {"export": "Export", "cancel": "Cancel"},
+    "save": {"title": "Save Video As"},
+    "warn": {"no_output": {"title": "No Output File", "msg": "Please select an output file path."}, "exists": {"title": "File Exists", "msg": "The file '{name}' already exists.\nOverwrite?"}},
     "status": {"preparing": "Preparing export..."},
-    "result": {
-      "success_title": "Export Successful",
-      "success_msg": "Video exported successfully to:\n{path}",
-      "success_inline": "✓ Export completed: {path}",
-      "fail_title": "Export Failed",
-      "fail_msg": "Export failed:\n{err}",
-      "fail_inline": "✗ Export failed: {err}"
-    }
+    "result": {"success_title": "Export Successful", "success_msg": "Video exported successfully to:\n{path}", "success_inline": "✓ Export completed: {path}", "fail_title": "Export Failed", "fail_msg": "Export failed:\n{err}", "fail_inline": "✗ Export failed: {err}"}
   },
-  "help": {
-    "title": "Keyboard Shortcuts & Help",
-    "tabs": {"file": "File", "edit": "Edit", "playback": "Playback", "markers": "Markers", "view": "View"},
-    "table": {"shortcut": "Shortcut", "action": "Action", "desc": "Description"},
-    "btn_close": "Close"
+  "help": {"title": "Keyboard Shortcuts & Help", "tabs": {"file": "File", "edit": "Edit", "playback": "Playback", "markers": "Markers", "view": "View"}, "table": {"shortcut": "Shortcut", "action": "Action", "desc": "Description"}, "btn_close": "Close"},
+  "dialog": {"language_changed_title": "Language Changed", "language_changed_msg": "Language has been changed. Please restart the application to apply all translations.", "ffmpeg_missing_title": "FFmpeg Not Found", "ffmpeg_missing_msg": "FFmpeg is required for video export but was not found on your system.\n\nTo install FFmpeg:\n1. Download from: https://ffmpeg.org/download.html\n2. Extract to a folder (e.g., C:\\ffmpeg)\n3. Add the 'bin' folder to your system PATH\n4. Restart this application\n\nWould you like to continue without FFmpeg? (Export will fail)", "no_video_to_export_title": "No Video to Export", "no_video_to_export_msg": "Please load a video or add clips to the timeline before exporting.", "language": "Language", "no_video": "No Video", "save_trim_as": "Save Trimmed Clip As", "trim_completed": "Trim Completed", "trim_failed": "Trim Failed", "no_clips": "No Clips", "no_selection": "No Selection", "please_select_at_least_one": "Please select at least one clip.", "rename_title": "Rename Clip", "rename_prompt": "New name:"},
+  "auth": {
+    "login": {"title": "Login", "username": "Username", "password": "Password", "btn_login": "Login", "btn_register": "Register...", "btn_forgot": "Forgot Password...", "btn_cancel": "Exit", "failed_title": "Login Failed"},
+    "register": {"title": "Register", "username": "Username (≥3)", "email": "Email (optional)", "password": "Password (≥6)", "confirm": "Confirm Password", "sec_q": "Security Question (optional)", "sec_a": "Security Answer (optional)", "btn_register": "Register", "btn_cancel": "Cancel", "password_mismatch": "Passwords do not match"},
+    "forgot": {"title": "Forgot Password", "username": "Username", "question_prefix": "Security question:", "answer": "Answer", "new_password": "New Password (≥6)", "btn_fetch": "Get Question", "btn_reset": "Reset Password", "btn_cancel": "Cancel"}
   },
-  "dialog": {
-    "language_changed_title": "Language Changed",
-    "language_changed_msg": "Language has been changed. Please restart the application to apply all translations.",
-    "ffmpeg_missing_title": "FFmpeg Not Found",
-    "ffmpeg_missing_msg": "FFmpeg is required for video export but was not found on your system.\n\nTo install FFmpeg:\n1. Download from: https://ffmpeg.org/download.html\n2. Extract to a folder (e.g., C:\\ffmpeg)\n3. Add the 'bin' folder to your system PATH\n4. Restart this application\n\nWould you like to continue without FFmpeg? (Export will fail)",
-    "no_video_to_export_title": "No Video to Export",
-    "no_video_to_export_msg": "Please load a video or add clips to the timeline before exporting.",
-    "language": "Language"
+  "select": {
+    "title": "Export Selected Clips",
+    "subtitle": "Select clips to merge/export",
+    "order_timeline": "Follow timeline order",
+    "order_custom": "Custom order",
+    "header_select": "Select",
+    "header_name": "Name",
+    "header_in": "In",
+    "header_out": "Out",
+    "header_duration": "Duration",
+    "header_source": "Source",
+    "btn_select_all": "Select All",
+    "btn_select_none": "Select None",
+    "btn_select_inv": "Invert",
+    "btn_move_up": "Move Up",
+    "btn_move_down": "Move Down",
+    "btn_next": "Next",
+    "btn_cancel": "Cancel",
+    "please_select": "(please select at least one)"
   }
 }

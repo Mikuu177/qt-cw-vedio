@@ -1,7 +1,5 @@
 {
-  "window": {
-    "title": "视频编辑器/播放器 - XJCO2811（迭代2）"
-  },
+  "window": {"title": "视频编辑器/播放器 - XJCO2811（迭代2）"},
   "status": {
     "ready": "就绪",
     "speed": "播放速度：{speed}",
@@ -17,7 +15,17 @@
     "marker_added": "已在 {time} 添加标记",
     "marker_prev": "跳转到标记：{label}",
     "marker_next": "跳转到标记：{label}",
-    "export_start": "开始导出..."
+    "export_start": "开始导出...",
+    "program_stopped": "已停止节目预览",
+    "program_no_clips": "无可用于节目预览的片段",
+    "selected_clip": "已选择片段：{name}",
+    "preview_from": "从 {time} 开始预览片段",
+    "jump_in": "跳转到入点：{time}",
+    "jump_out": "跳转到出点：{time}",
+    "applied_global_io": "已应用全局 I/O 到片段：{in} - {out}",
+    "added_io_as_clip": "已从 I/O 添加新片段：{in} - {out}",
+    "failed_load_source": "无法加载片段源以应用 I/O",
+    "trimming": "正在裁剪... {pct}%"
   },
   "menu": {
     "file": "文件(&F)",
@@ -25,8 +33,20 @@
     "view": "视图(&V)",
     "markers": "标记(&M)",
     "help": "帮助(&H)",
-    "language": "语言(&L)"
+    "language": "语言(&L)",
+    "account": "账号(&A)",
+    "playback": "播放(&P)"
   },
+  "account": {
+    "signed_in_as": "当前用户：{user}",
+    "switch_user": "切换用户/注销(&S)...",
+    "switch_user_title": "切换用户",
+    "switch_user_msg": "是否注销当前用户并切换？",
+    "not_signed_in": "未登录",
+    "exit_msg": "未登录用户，应用将关闭。"
+  },
+  "inspector": {"title": "检查器"},
+  "toolbar": {"edit_tools": "编辑工具"},
   "action": {
     "open": "打开视频(&O)...",
     "export": "导出视频(&E)...",
@@ -45,7 +65,14 @@
     "shortcuts": "键盘快捷键(&K)",
     "about": "关于(&A)",
     "lang_en": "English",
-    "lang_zh": "中文"
+    "lang_zh": "中文",
+    "apply_io": "应用 I/O 到选中片段",
+    "add_io_as_clip": "将 I/O 作为新片段加入",
+    "extract_io_new_file": "提取 I/O 为新文件并加入",
+    "program_start": "开始节目预览",
+    "program_stop": "停止节目预览",
+    "program_prev": "上一个片段",
+    "program_next": "下一个片段"
   },
   "label": {
     "speed": "速度：",
@@ -59,7 +86,10 @@
     "stop": "停止",
     "forward": "前进 10 秒",
     "mute": "静音 (M)",
-    "fullscreen": "全屏 (F)"
+    "fullscreen": "全屏 (F)",
+    "apply_io": "将全局 I/O 应用到当前选中片段",
+    "add_io_as_clip": "将当前视频 I/O 作为新片段加入",
+    "extract_io_new_file": "使用 FFmpeg 将 I/O 裁剪为新文件并加入"
   },
   "timeline": {
     "title": "时间轴",
@@ -77,11 +107,7 @@
   },
   "export": {
     "title": "导出视频",
-    "output": {
-      "group": "输出文件",
-      "placeholder": "选择输出文件路径...",
-      "browse": "浏览..."
-    },
+    "output": {"group": "输出文件", "placeholder": "选择输出文件路径...", "browse": "浏览..."},
     "quality": {
       "group": "质量设置",
       "label": "质量预设：",
@@ -92,13 +118,13 @@
       "info_medium": "平衡质量 | 文件适中 | H.264, 720p, CRF 23, 128k 音频",
       "info_low": "体积较小 | 质量较低 | H.264, 480p, CRF 28, 96k 音频"
     },
-    "btn": {
-      "export": "导出",
-      "cancel": "取消"
+    "transitions": {
+      "group": "过渡",
+      "enable": "启用片段间淡入淡出",
+      "duration_label": "时长 (毫秒)："
     },
-    "save": {
-      "title": "另存为"
-    },
+    "btn": {"export": "导出", "cancel": "取消"},
+    "save": {"title": "另存为"},
     "warn": {
       "no_output": {"title": "未选择输出文件", "msg": "请选择输出文件路径。"},
       "exists": {"title": "文件已存在", "msg": "文件 '{name}' 已存在。\n是否覆盖？"}
@@ -117,7 +143,60 @@
     "title": "键盘快捷键与帮助",
     "tabs": {"file": "文件", "edit": "编辑", "playback": "播放", "markers": "标记", "view": "视图"},
     "table": {"shortcut": "快捷键", "action": "操作", "desc": "说明"},
-    "btn_close": "关闭"
+    "btn_close": "关闭",
+    "file": {
+      "open": "打开视频文件",
+      "open_desc": "打开文件对话框以加载视频",
+      "export": "导出视频",
+      "export_desc": "打开导出对话框以保存编辑后的视频",
+      "quit": "退出应用",
+      "quit_desc": "关闭应用"
+    },
+    "edit": {
+      "undo": "撤销",
+      "undo_desc": "撤销上一步操作（添加/删除片段或标记）",
+      "redo": "重做",
+      "redo_desc": "重做之前撤销的操作",
+      "toggle_trim": "切换裁剪模式",
+      "toggle_trim_desc": "启用/禁用裁剪模式",
+      "set_in": "设置入点",
+      "set_in_desc": "在当前位置标记裁剪起点",
+      "set_out": "设置出点",
+      "set_out_desc": "在当前位置标记裁剪终点"
+    },
+    "playback": {
+      "playpause": "播放/暂停",
+      "playpause_desc": "切换视频播放",
+      "seek_back": "后退 5 秒",
+      "seek_back_desc": "向后移动 5 秒",
+      "seek_fwd": "前进 5 秒",
+      "seek_fwd_desc": "向前移动 5 秒",
+      "vol_up": "增大音量",
+      "vol_up_desc": "音量增加 5%",
+      "vol_down": "减小音量",
+      "vol_down_desc": "音量减少 5%",
+      "mute": "静音/取消静音",
+      "mute_desc": "切换静音（注：OpenCV 无音频）",
+      "note": "提示：OpenCV 后端不支持音频播放。"
+    },
+    "markers": {
+      "add": "添加标记",
+      "add_desc": "在当前位置添加一个标记",
+      "prev": "上一个标记",
+      "prev_desc": "跳转到上一个标记",
+      "next": "下一个标记",
+      "next_desc": "跳转到下一个标记",
+      "info": "标记帮助你在长视频中定位关键时刻。\n点击时间轴中的标记旗帜可直接跳转。"
+    },
+    "view": {
+      "fullscreen": "全屏",
+      "fullscreen_desc": "切换全屏模式",
+      "exit_fullscreen": "退出全屏",
+      "exit_fullscreen_desc": "返回窗口模式",
+      "hc": "高对比度模式",
+      "hc_desc": "为无障碍切换高对比度主题",
+      "hc_info": "高对比度模式（WCAG 2.1 AAA）：\n• 黑色背景+黄/白文本\n• 对比度 19:1（高于 7:1 要求）\n• 加粗字体和粗边框\n• 加强的焦点指示\n适用于低视力用户"
+    }
   },
   "dialog": {
     "language_changed_title": "语言已更改",
@@ -125,6 +204,43 @@
     "ffmpeg_missing_title": "未找到 FFmpeg",
     "no_video_to_export_title": "无可导出的视频",
     "no_video_to_export_msg": "请先加载视频或向时间轴添加片段后再导出。",
-    "language": "语言"
+    "language": "语言",
+    "no_video": "无视频",
+    "save_trim_as": "另存为裁剪片段",
+    "trim_completed": "裁剪完成",
+    "trim_failed": "裁剪失败"
+  },
+  "auth": {
+    "login": {
+      "title": "登录",
+      "username": "用户名",
+      "password": "密码",
+      "btn_login": "登录",
+      "btn_register": "注册...",
+      "btn_forgot": "忘记密码...",
+      "btn_cancel": "退出",
+      "failed_title": "登录失败"
+    },
+    "register": {
+      "title": "注册",
+      "username": "用户名 (≥3)",
+      "email": "邮箱 (可选)",
+      "password": "密码 (≥6)",
+      "confirm": "确认密码",
+      "sec_q": "安全问题 (可选)",
+      "sec_a": "安全答案 (可选)",
+      "btn_register": "注册",
+      "btn_cancel": "取消"
+    },
+    "forgot": {
+      "title": "找回密码",
+      "username": "用户名",
+      "question_prefix": "安全问题：",
+      "answer": "答案",
+      "new_password": "新密码 (≥6)",
+      "btn_fetch": "获取问题",
+      "btn_reset": "重置密码",
+      "btn_cancel": "取消"
+    }
   }
 }

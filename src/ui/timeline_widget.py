@@ -9,7 +9,8 @@ from PyQt5.QtWidgets import (
     QPushButton, QLabel, QFrame, QFileDialog, QMenu, QAction, QMessageBox
 )
 from PyQt5.QtCore import Qt, pyqtSignal, QRect, QPoint, QSize
-from PyQt5.QtGui import QPainter, QColor, QPen, QBrush, QFont, QMouseEvent
+from PyQt5.QtWidgets import QInputDialog
+from PyQt5.QtGui import QPainter, QColor, QPen, QBrush, QFont, QMouseEvent, QPixmap
 import os
 import sys
 
@@ -25,8 +26,14 @@ class ClipItem(QFrame):
     """Visual representation of a timeline clip."""
 
     clicked = pyqtSignal(int)  # clip_id
+    activated = pyqtSignal(int)  # clip_id (double-click)
     delete_requested = pyqtSignal(int)  # clip_id
     move_requested = pyqtSignal(int, int)  # clip_id, new_index
+    rename_requested = pyqtSignal(int)  # clip_id
+    jump_to_in_requested = pyqtSignal(int)  # clip_id
+    jump_to_out_requested = pyqtSignal(int)  # clip_id
+    set_in_from_current_requested = pyqtSignal(int)  # clip_id
+    set_out_from_current_requested = pyqtSignal(int)  # clip_id
 
     def __init__(self, clip: TimelineClip, parent=None):
         super().__init__(parent)
@@ -35,8 +42,8 @@ class ClipItem(QFrame):
 
         self.setFrameStyle(QFrame.Box | QFrame.Raised)
         self.setLineWidth(2)
-        self.setMinimumSize(100, 60)
-        self.setMaximumHeight(80)
+        self.setMinimumSize(140, 100)
+        self.setMaximumHeight(110)
 
         # Enable drag
         self.drag_start_pos = None
@@ -44,9 +51,18 @@ class ClipItem(QFrame):
         layout = QVBoxLayout()
         self.setLayout(layout)
 
+        # Thumbnail
+        self.thumb = QLabel()
+        self.thumb.setFixedSize(120, 60)
+        self.thumb.setStyleSheet("background-color:#ddd; border:1px solid #ccc;")
+        self.thumb.setAlignment(Qt.AlignCenter)
+        layout.addWidget(self.thumb)
+        self._load_thumbnail()
+
         # Clip label
         filename = os.path.basename(clip.source_path)
-        self.label = QLabel(filename)
+        name = clip.label or filename
+        self.label = QLabel(name)
         self.label.setWordWrap(True)
         self.label.setStyleSheet("font-size: 9pt; font-weight: bold;")
         layout.addWidget(self.label)
@@ -58,6 +74,38 @@ class ClipItem(QFrame):
         layout.addWidget(self.duration_label)
 
         self.update_style()
+
+    def _load_thumbnail(self):
+        """Load a mid-frame thumbnail using OpenCV (fallback to text)."""
+        try:
+            import cv2
+            cap = cv2.VideoCapture(self.clip.source_path)
+            if cap.isOpened():
+                total = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
+                mid = max(0, total // 2)
+                cap.set(cv2.CAP_PROP_POS_FRAMES, mid)
+                ok, frame = cap.read()
+                cap.release()
+                if ok and frame is not None:
+                    # BGR -> RGB
+                    import numpy as np
+                    h, w, ch = frame.shape
+                    rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+                    from PyQt5.QtGui import QImage
+                    qimg = QImage(rgb.data, w, h, ch * w, QImage.Format_RGB888)
+                    pix = QPixmap.fromImage(qimg).scaled(self.thumb.size(), Qt.KeepAspectRatio, Qt.SmoothTransformation)
+                    self.thumb.setPixmap(pix)
+                    return
+        except Exception:
+            pass
+        self.thumb.setText("No\nThumb")
+
+    def refresh_meta(self):
+        filename = os.path.basename(self.clip.source_path)
+        name = self.clip.label or filename
+        self.label.setText(name)
+        duration_sec = max(0, self.clip.duration_ms) / 1000.0
+        self.duration_label.setText(f"{duration_sec:.1f}s")
 
     def update_style(self):
         """Update visual style based on selection state."""
@@ -111,9 +159,46 @@ class ClipItem(QFrame):
         """Handle mouse release."""
         self.drag_start_pos = None
 
+    def mouseDoubleClickEvent(self, event: QMouseEvent):
+        """Handle double click to activate clip preview."""
+        if event.button() == Qt.LeftButton:
+            self.activated.emit(self.clip.id)
+        super().mouseDoubleClickEvent(event)
+
     def show_context_menu(self, pos: QPoint):
         """Show context menu on right-click."""
         menu = QMenu(self)
+
+        # Rename
+        rename_action = QAction(i18n.t("timeline.context_rename", "Rename"), self)
+        rename_action.triggered.connect(lambda: self.rename_requested.emit(self.clip.id))
+        menu.addAction(rename_action)
+
+        # Jump to In/Out in preview
+        jump_in_action = QAction(i18n.t("timeline.context_jump_in", "Jump to In"), self)
+        jump_in_action.triggered.connect(lambda: self.jump_to_in_requested.emit(self.clip.id))
+        menu.addAction(jump_in_action)
+
+        jump_out_action = QAction(i18n.t("timeline.context_jump_out", "Jump to Out"), self)
+        jump_out_action.triggered.connect(lambda: self.jump_to_out_requested.emit(self.clip.id))
+        menu.addAction(jump_out_action)
+
+        menu.addSeparator()
+
+        # Update In/Out from current player position
+        set_in_action = QAction(i18n.t("timeline.context_set_in_from_current", "Set In from Current"), self)
+        set_in_action.triggered.connect(lambda: self.set_in_from_current_requested.emit(self.clip.id))
+        menu.addAction(set_in_action)
+
+        set_out_action = QAction(i18n.t("timeline.context_set_out_from_current", "Set Out from Current"), self)
+        set_out_action.triggered.connect(lambda: self.set_out_from_current_requested.emit(self.clip.id))
+        menu.addAction(set_out_action)
+
+        menu.addSeparator()
+
+        split_action = QAction(i18n.t("timeline.context_split", "Split at Current"), self)
+        split_action.triggered.connect(lambda: self.clip_split_requested.emit(self.clip.id))
+        menu.addAction(split_action)
 
         delete_action = QAction(i18n.t("timeline.context_delete", "Delete Clip"), self)
         delete_action.triggered.connect(lambda: self.delete_requested.emit(self.clip.id))
@@ -168,12 +253,24 @@ class TimelineWidget(QWidget):
     Signals:
         clip_selected: Emitted when clip is selected (clip_id)
         clip_deleted: Emitted when clip is deleted (clip_id)
+        clip_activated: Emitted when clip is double-clicked (clip_id)
         marker_clicked: Emitted when marker is clicked (marker_id)
+        clip_jump_to_in: Request preview jump to clip's In (clip_id)
+        clip_jump_to_out: Request preview jump to clip's Out (clip_id)
+        clip_set_in_from_current: Request set clip In from current player position (clip_id)
+        clip_set_out_from_current: Request set clip Out from current player position (clip_id)
     """
 
     clip_selected = pyqtSignal(int)
     clip_deleted = pyqtSignal(int)
+    clip_activated = pyqtSignal(int)
     marker_clicked = pyqtSignal(int)
+    clip_jump_to_in = pyqtSignal(int)
+    clip_jump_to_out = pyqtSignal(int)
+    clip_set_in_from_current = pyqtSignal(int)
+    clip_set_out_from_current = pyqtSignal(int)
+    clip_rename_requested = pyqtSignal(int)
+    clip_split_requested = pyqtSignal(int)
 
     def __init__(self, timeline: Timeline, marker_manager: MarkerManager, parent=None):
         super().__init__(parent)
@@ -188,6 +285,7 @@ class TimelineWidget(QWidget):
         # Connect signals
         self.timeline.clip_added.connect(self.on_clip_added)
         self.timeline.clip_removed.connect(self.on_clip_removed)
+        self.timeline.clip_modified.connect(self.on_clip_modified)
         self.timeline.timeline_cleared.connect(self.on_timeline_cleared)
 
         self.marker_manager.marker_added.connect(self.on_marker_added)
@@ -251,7 +349,13 @@ class TimelineWidget(QWidget):
         """Handle clip added to timeline."""
         clip_widget = ClipItem(clip)
         clip_widget.clicked.connect(self.on_clip_clicked)
+        clip_widget.activated.connect(self.on_clip_activated)
         clip_widget.delete_requested.connect(self.on_clip_delete_requested)
+        clip_widget.rename_requested.connect(lambda cid=clip.id: self.clip_rename_requested.emit(cid))
+        clip_widget.jump_to_in_requested.connect(lambda cid=clip.id: self.clip_jump_to_in.emit(cid))
+        clip_widget.jump_to_out_requested.connect(lambda cid=clip.id: self.clip_jump_to_out.emit(cid))
+        clip_widget.set_in_from_current_requested.connect(lambda cid=clip.id: self.clip_set_in_from_current.emit(cid))
+        clip_widget.set_out_from_current_requested.connect(lambda cid=clip.id: self.clip_set_out_from_current.emit(cid))
 
         self.clip_widgets[clip.id] = clip_widget
         self.clip_layout.addWidget(clip_widget)
@@ -269,6 +373,13 @@ class TimelineWidget(QWidget):
             if self.selected_clip_id == clip_id:
                 self.selected_clip_id = None
 
+        self.update_info()
+
+    def on_clip_modified(self, clip: TimelineClip):
+        """Refresh UI when clip metadata changes (label, in/out/duration)."""
+        widget = self.clip_widgets.get(clip.id)
+        if widget:
+            widget.refresh_meta()
         self.update_info()
 
     def on_timeline_cleared(self):
@@ -292,6 +403,10 @@ class TimelineWidget(QWidget):
             self.clip_widgets[clip_id].set_selected(True)
 
         self.clip_selected.emit(clip_id)
+
+    def on_clip_activated(self, clip_id: int):
+        """Emit activation to parent (for preview)."""
+        self.clip_activated.emit(clip_id)
 
     def on_clip_delete_requested(self, clip_id: int):
         """Handle clip deletion request."""

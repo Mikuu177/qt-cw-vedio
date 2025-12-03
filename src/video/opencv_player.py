@@ -38,6 +38,7 @@ class OpenCVVideoPlayer(QLabel):
 
         # Video capture object
         self.capture = None
+        self.video_path = None
 
         # Playback state
         self.state = self.STATE_STOPPED
@@ -84,6 +85,7 @@ class OpenCVVideoPlayer(QLabel):
 
         # Open video file
         self.capture = cv2.VideoCapture(file_path)
+        self.video_path = file_path
 
         if not self.capture.isOpened():
             print(f"[ERROR] Failed to open video: {file_path}")
@@ -217,6 +219,10 @@ class OpenCVVideoPlayer(QLabel):
         if self.capture is None:
             return 0
         return int((self.current_frame / self.fps) * 1000)
+
+    def get_duration(self):
+        """Get total duration in milliseconds."""
+        return int(self.duration_ms or 0)
 
     def _update_frame(self):
         """Update to next frame (called by timer)."""

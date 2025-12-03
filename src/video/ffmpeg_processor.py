@@ -75,14 +75,7 @@ class FFmpegProcessor(QObject):
         quality: str = QUALITY_HIGH
     ):
         """
-        Trim a video segment.
-
-        Args:
-            input_path: Source video file
-            output_path: Output file path
-            start_time_ms: Start time in milliseconds
-            end_time_ms: End time in milliseconds
-            quality: Quality preset (high/medium/low)
+        Trim a video segment and report real-time progress.
         """
         self.is_cancelled = False
         self.process_started.emit()
@@ -105,18 +98,12 @@ class FFmpegProcessor(QObject):
             "-preset", settings["preset"],
             "-c:a", "aac",
             "-b:a", settings["bitrate_audio"],
+            "-y", output_path
         ]
-
-        # Add scaling if specified
-        if settings["scale"]:
-            cmd.extend(["-vf", f"scale={settings['scale']}"])
-
-        cmd.extend(["-y", output_path])  # -y to overwrite
-
-        print(f"[FFmpeg] Executing: {' '.join(cmd)}")
+        print(f"[FFmpeg][Trim] Executing: {' '.join(cmd)}", flush=True)
 
         try:
-            # Run FFmpeg process
+            # Run FFmpeg process (stream stderr for progress)
             self.process = subprocess.Popen(
                 cmd,
                 stdout=subprocess.PIPE,
@@ -124,19 +111,37 @@ class FFmpegProcessor(QObject):
                 universal_newlines=True
             )
 
-            # Monitor progress (FFmpeg outputs to stderr)
+            # Estimate total duration in seconds for progress
+            total_sec = max(0.01, (end_time_ms - start_time_ms) / 1000.0)
+
+            def _parse_ff_time(s: str) -> float:
+                import re
+                m = re.search(r"time=(\d+):(\d+):(\d+\.?\d*)", s)
+                if not m:
+                    return -1.0
+                hh = int(m.group(1)); mm = int(m.group(2)); ss = float(m.group(3))
+                return hh * 3600.0 + mm * 60.0 + ss
+
             for line in self.process.stderr:
                 if self.is_cancelled:
                     self.process.terminate()
+                    print("[FFmpeg][Trim] Cancelled by user", flush=True)
                     self.process_completed.emit(False, "Cancelled by user")
                     return
 
-                # Parse progress from FFmpeg output
-                # FFmpeg outputs: frame=X fps=Y size=Z time=HH:MM:SS.mmm
-                if "time=" in line:
-                    # Simple progress estimation
-                    # (In production, parse actual time and calculate percentage)
+                # Echo stderr for debugging
+                try:
+                    print(f"[FFmpeg][Trim][stderr] {line.strip()}", flush=True)
+                except Exception:
                     pass
+
+                # Parse progress from FFmpeg output (time=HH:MM:SS.mmm)
+                if "time=" in line:
+                    cur = _parse_ff_time(line)
+                    if cur >= 0:
+                        pct = int(min(cur / total_sec * 100.0, 99))
+                        self.progress_updated.emit(pct)
+                        print(f"[FFmpeg][Trim][progress] {pct}%", flush=True)
 
             self.process.wait()
 
@@ -156,15 +161,12 @@ class FFmpegProcessor(QObject):
         self,
         clips: List[Tuple[str, int, int]],  # [(path, start_ms, end_ms), ...]
         output_path: str,
-        quality: str = QUALITY_HIGH
+        quality: str = QUALITY_HIGH,
+        transitions_enabled: bool = False,
+        transition_ms: int = 500
     ):
         """
-        Concatenate multiple video clips.
-
-        Args:
-            clips: List of (file_path, start_ms, end_ms) tuples
-            output_path: Output file path
-            quality: Quality preset
+        Concatenate multiple video clips. Progress: trim stage 0→60%, concat stage 60→99%, finish 100%.
         """
         self.is_cancelled = False
         self.process_started.emit()
@@ -173,9 +175,10 @@ class FFmpegProcessor(QObject):
             # Create temporary trimmed clips
             temp_dir = tempfile.mkdtemp()
             temp_clips = []
+            durations_sec = []
             concat_file = os.path.join(temp_dir, "concat_list.txt")
 
-            print(f"[FFmpeg] Processing {len(clips)} clips...")
+            print(f"[FFmpeg] Processing {len(clips)} clips...", flush=True)
 
             # Step 1: Trim each clip
             for idx, (path, start_ms, end_ms) in enumerate(clips):
@@ -186,36 +189,161 @@ class FFmpegProcessor(QObject):
                 temp_clip = os.path.join(temp_dir, f"clip_{idx}.mp4")
                 temp_clips.append(temp_clip)
 
-                # Trim this clip
+                # Trim this clip (re-encode with selected quality)
                 self._trim_clip_sync(path, temp_clip, start_ms, end_ms, quality)
 
-                # Update progress
-                progress = int((idx + 1) / len(clips) * 80)  # 0-80%
+                # Record duration in seconds
+                durations_sec.append(max(0.01, (end_ms - start_ms) / 1000.0))
+
+                # Update progress (0→60%)
+                progress = int((idx + 1) / max(1, len(clips)) * 60)
                 self.progress_updated.emit(progress)
 
-            # Step 2: Create concat file
-            with open(concat_file, 'w') as f:
+            # Step 2: Concatenate
+            if not transitions_enabled or len(temp_clips) <= 1:
+                # Use concat demuxer (fast stream copy) and parse progress
+                with open(concat_file, 'w') as f:
+                    for clip in temp_clips:
+                        f.write(f"file '{clip}'\n")
+
+                cmd = [
+                    "ffmpeg",
+                    "-f", "concat",
+                    "-safe", "0",
+                    "-i", concat_file,
+                    "-c", "copy",
+                    "-y", output_path
+                ]
+                print(f"[FFmpeg] Concatenating clips: {' '.join(cmd)}", flush=True)
+
+                # Total seconds for concat stage
+                acc_total = max(0.01, sum(durations_sec))
+
+                def _parse_ff_time(s: str) -> float:
+                    import re
+                    m = re.search(r"time=(\d+):(\d+):(\d+\.?\d*)", s)
+                    if not m:
+                        return -1.0
+                    hh = int(m.group(1)); mm = int(m.group(2)); ss = float(m.group(3))
+                    return hh * 3600.0 + mm * 60.0 + ss
+
+                self.process = subprocess.Popen(
+                    cmd,
+                    stdout=subprocess.PIPE,
+                    stderr=subprocess.PIPE,
+                    universal_newlines=True
+                )
+                for line in self.process.stderr:
+                    if self.is_cancelled:
+                        self.process.terminate()
+                        self.process_completed.emit(False, "Cancelled by user")
+                        return
+                    try:
+                        print(f"[FFmpeg][Concat][stderr] {line.strip()}", flush=True)
+                    except Exception:
+                        pass
+                    if "time=" in line:
+                        cur = _parse_ff_time(line)
+                        if cur >= 0:
+                            pct = 60 + int(min(cur / acc_total, 1.0) * 39)
+                            self.progress_updated.emit(min(pct, 99))
+                self.process.wait()
+                result_code = self.process.returncode
+
+            else:
+                # Build filter_complex for xfade/acrossfade progressive chaining
+                td = max(0.05, transition_ms / 1000.0)
+                # Inputs
+                cmd = ["ffmpeg"]
                 for clip in temp_clips:
-                    f.write(f"file '{clip}'\n")
+                    cmd.extend(["-i", clip])
 
-            # Step 3: Concatenate using concat demuxer (fastest)
-            cmd = [
-                "ffmpeg",
-                "-f", "concat",
-                "-safe", "0",
-                "-i", concat_file,
-                "-c", "copy",  # Stream copy (fast, no re-encoding)
-                "-y", output_path
-            ]
+                # Detect audio presence; if any clip lacks audio -> degrade to video-only xfade
+                def _has_audio(path: str) -> bool:
+                    try:
+                        probe = subprocess.run([
+                            "ffprobe", "-v", "error", "-select_streams", "a:0",
+                            "-show_entries", "stream=codec_type", "-of", "csv=p=0", path
+                        ], capture_output=True, timeout=10)
+                        out = (probe.stdout or b"").decode(errors="ignore").strip()
+                        return "audio" in out.lower()
+                    except Exception:
+                        return False
 
-            print(f"[FFmpeg] Concatenating clips: {' '.join(cmd)}")
+                has_audio_all = all(_has_audio(p) for p in temp_clips)
 
-            result = subprocess.run(
-                cmd,
-                capture_output=True,
-                universal_newlines=True,
-                timeout=300  # 5 min timeout
-            )
+                filter_lines = []
+                out_v = "[0:v]"
+                out_a = "[0:a]" if has_audio_all else None
+                acc_dur = durations_sec[0]
+                # Progressive chain
+                for i in range(1, len(temp_clips)):
+                    inv = f"[{i}:v]"
+                    # offset = previous accumulated duration - transition duration
+                    offset = max(0.0, acc_dur - td)
+                    v_label = f"[v{i}]"
+                    filter_lines.append(f"{out_v}{inv} xfade=transition=fade:duration={td}:offset={offset} {v_label}")
+                    out_v = v_label
+                    if has_audio_all:
+                        ina = f"[{i}:a]"
+                        a_label = f"[a{i}]"
+                        filter_lines.append(f"{out_a}{ina} acrossfade=d={td}:c1=tri:c2=tri {a_label}")
+                        out_a = a_label
+                    acc_dur = acc_dur + durations_sec[i] - td
+
+                filter_complex = ";".join(filter_lines)
+                # Output mapping with re-encode
+                settings = self.QUALITY_SETTINGS.get(quality, self.QUALITY_SETTINGS[self.QUALITY_HIGH])
+                cmd.extend([
+                    "-filter_complex", filter_complex,
+                    "-map", out_v,
+                ])
+                if has_audio_all and out_a:
+                    cmd.extend(["-map", out_a, "-c:a", "aac", "-b:a", settings["bitrate_audio"]])
+                else:
+                    cmd.extend(["-an"])  # no audio
+                cmd.extend([
+                    "-c:v", "libx264",
+                    "-crf", settings["crf"],
+                    "-preset", settings["preset"],
+                    "-y", output_path
+                ])
+
+                print(f"[FFmpeg] XFade command: {' '.join(cmd)}", flush=True)
+
+                # Parse concat stage progress 60→100
+                acc_total = max(0.01, sum(durations_sec) - td * (len(durations_sec) - 1))
+
+                def _parse_ff_time(s: str) -> float:
+                    import re
+                    m = re.search(r"time=(\d+):(\d+):(\d+\.?\d*)", s)
+                    if not m:
+                        return -1.0
+                    hh = int(m.group(1)); mm = int(m.group(2)); ss = float(m.group(3))
+                    return hh * 3600.0 + mm * 60.0 + ss
+
+                self.process = subprocess.Popen(
+                    cmd,
+                    stdout=subprocess.PIPE,
+                    stderr=subprocess.PIPE,
+                    universal_newlines=True
+                )
+                for line in self.process.stderr:
+                    if self.is_cancelled:
+                        self.process.terminate()
+                        self.process_completed.emit(False, "Cancelled by user")
+                        return
+                    try:
+                        print(f"[FFmpeg][Concat][stderr] {line.strip()}", flush=True)
+                    except Exception:
+                        pass
+                    if "time=" in line:
+                        cur = _parse_ff_time(line)
+                        if cur >= 0:
+                            pct = 60 + int(min(cur / acc_total, 1.0) * 39)
+                            self.progress_updated.emit(min(pct, 99))
+                self.process.wait()
+                result_code = self.process.returncode
 
             # Cleanup temp files
             for clip in temp_clips:
@@ -223,13 +351,16 @@ class FFmpegProcessor(QObject):
                     os.remove(clip)
             if os.path.exists(concat_file):
                 os.remove(concat_file)
-            os.rmdir(temp_dir)
+            try:
+                os.rmdir(temp_dir)
+            except Exception:
+                pass
 
-            if result.returncode == 0 and os.path.exists(output_path):
+            if result_code == 0 and os.path.exists(output_path):
                 self.progress_updated.emit(100)
                 self.process_completed.emit(True, output_path)
             else:
-                error_msg = f"Concatenation failed: {result.stderr}"
+                error_msg = "Concatenation failed"
                 self.process_completed.emit(False, error_msg)
 
         except Exception as e:

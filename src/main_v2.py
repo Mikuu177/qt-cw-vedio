@@ -10,9 +10,13 @@ import sys
 from PyQt5.QtWidgets import QApplication
 from ui.main_window_v2 import MainWindow
 
+# Auth imports
+from utils.auth_manager import AuthManager
+from ui.auth_dialogs import LoginDialog
+
 
 def main():
-    """Main entry point for the application."""
+    """Main entry point for the application with authentication."""
     app = QApplication(sys.argv)
 
     # Set application metadata
@@ -20,13 +24,22 @@ def main():
     app.setOrganizationName("XJCO2811")
     app.setOrganizationDomain("leeds.ac.uk")
 
+    # Auth: force login before showing main window
+    auth = AuthManager()
+    login = LoginDialog(auth)
+    result = login.exec_()
+    if result != login.Accepted or auth.current_user is None:
+        # User cancelled or login failed
+        return 0
+
     # Create and show main window
-    window = MainWindow(app)
+    window = MainWindow(app, auth)
     window.show()
 
     # Start event loop
-    sys.exit(app.exec_())
+    return app.exec_()
 
 
 if __name__ == "__main__":
-    main()
+    import sys as _sys
+    _sys.exit(main())

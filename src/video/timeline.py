@@ -260,6 +260,88 @@ class Timeline(QObject):
 
         return True
 
+    def update_clip_in_out(self, clip_id: int, new_start_ms: int, new_end_ms: int) -> bool:
+        """Update clip start and end (in/out) and shift timeline accordingly."""
+        clip = self.get_clip(clip_id)
+        if not clip:
+            return False
+        if new_end_ms < new_start_ms:
+            return False
+
+        old_duration = clip.duration_ms
+        new_duration = new_end_ms - new_start_ms
+        clip.start_time_ms = max(0, new_start_ms)
+        clip.duration_ms = max(0, new_duration)
+
+        clip_idx = self.clips.index(clip)
+        duration_delta = clip.duration_ms - old_duration
+        self._shift_clips_after(clip_idx, duration_delta)
+
+        self.clip_modified.emit(clip)
+        self._update_duration()
+        return True
+
+    def update_clip_label(self, clip_id: int, new_label: str) -> bool:
+        """Update clip label and emit modified."""
+        clip = self.get_clip(clip_id)
+        if not clip:
+            return False
+        clip.label = new_label or ""
+        self.clip_modified.emit(clip)
+        return True
+
+    def split_clip(self, clip_id: int, split_ms: int) -> Optional[TimelineClip]:
+        """
+        Split a clip at split_ms (absolute in source time). Returns the new right clip.
+        Left clip keeps [start, split), right clip is [split, end).
+        Positions on timeline are recomputed to avoid gaps.
+        """
+        clip = self.get_clip(clip_id)
+        if not clip:
+            return None
+        # Validate split point is strictly inside
+        if split_ms <= clip.start_time_ms or split_ms >= clip.end_time_ms:
+            return None
+
+        left_duration = split_ms - clip.start_time_ms
+        right_duration = clip.end_time_ms - split_ms
+
+        # Update left clip duration (this will shift subsequent clips by delta)
+        old_duration = clip.duration_ms
+        clip.duration_ms = left_duration
+        clip_idx = self.clips.index(clip)
+        duration_delta = left_duration - old_duration
+        self._shift_clips_after(clip_idx, duration_delta)
+        self.clip_modified.emit(clip)
+
+        # Create right clip positioned immediately after left
+        right_position = clip.timeline_end_ms
+        new_clip = TimelineClip(
+            id=self._next_clip_id,
+            source_path=clip.source_path,
+            start_time_ms=split_ms,
+            duration_ms=right_duration,
+            position_ms=right_position,
+            label=clip.label + " (part 2)" if clip.label else ""
+        )
+        self._next_clip_id += 1
+
+        # Insert new clip right after current index
+        insert_idx = clip_idx + 1
+        self.clips.insert(insert_idx, new_clip)
+
+        # Shift any clips after the inserted right clip by its duration
+        if insert_idx < len(self.clips) - 1:
+            self._shift_clips_after(insert_idx, new_clip.duration_ms)
+
+        # Recalculate positions to remove any rounding issues
+        self._recalculate_positions()
+
+        self.clip_added.emit(new_clip)
+        self._update_duration()
+        print(f"[Timeline] Split clip {clip_id} at {split_ms}ms -> new clip {new_clip.id}")
+        return new_clip
+
     def clear(self):
         """Clear all clips from timeline."""
         self.clips.clear()
@@ -317,6 +399,19 @@ class Timeline(QObject):
             f"Timeline(clips={len(self.clips)}, "
             f"duration={self.get_total_duration()}ms)"
         )
+
+    # Helpers for program preview
+    def get_sorted_clips(self) -> List[TimelineClip]:
+        """Return clips sorted by position_ms."""
+        return sorted(self.clips, key=lambda c: c.position_ms)
+
+    def get_index_of_clip(self, clip_id: int) -> int:
+        """Return index of clip in sorted order; -1 if not found."""
+        sorted_clips = self.get_sorted_clips()
+        for idx, c in enumerate(sorted_clips):
+            if c.id == clip_id:
+                return idx
+        return -1
 
 
 # Example usage
